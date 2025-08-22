@@ -10,9 +10,11 @@ import ProductDetail from './pages/ProductDetail';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Checkout from './pages/Checkout';
+import Wishlist from './pages/Wishlist';
 
 function App() {
   const [cartItems, setCartItems] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
   // Add item to cart
@@ -56,6 +58,32 @@ function App() {
     setCartItems([]);
   };
 
+  // Add item to wishlist
+  const addToWishlist = (product) => {
+    setWishlistItems(prevItems => {
+      const existingItem = prevItems.find(item => item.id === product.id);
+      if (!existingItem) {
+        return [...prevItems, product];
+      }
+      return prevItems;
+    });
+  };
+
+  // Remove item from wishlist
+  const removeFromWishlist = (productId) => {
+    setWishlistItems(prevItems => prevItems.filter(item => item.id !== productId));
+  };
+
+  // Clear wishlist
+  const clearWishlist = () => {
+    setWishlistItems([]);
+  };
+
+  // Check if item is in wishlist
+  const isInWishlist = (productId) => {
+    return wishlistItems.some(item => item.id === productId);
+  };
+
   // Toggle cart visibility
   const toggleCart = () => {
     setIsCartOpen(!isCartOpen);
@@ -65,7 +93,11 @@ function App() {
     <HelmetProvider>
       <Router>
         <div className="App">
-          <Navbar cartItems={cartItems} toggleCart={toggleCart} />
+          <Navbar 
+            cartItems={cartItems} 
+            wishlistItems={wishlistItems}
+            toggleCart={toggleCart} 
+          />
           
           <Cart
             isOpen={isCartOpen}
@@ -79,15 +111,15 @@ function App() {
             <Routes>
               <Route 
                 path="/" 
-                element={<Home addToCart={addToCart} />} 
+                element={<Home addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
               />
               <Route 
                 path="/products" 
-                element={<Products addToCart={addToCart} />} 
+                element={<Products addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
               />
               <Route 
                 path="/product/:id" 
-                element={<ProductDetail addToCart={addToCart} />} 
+                element={<ProductDetail addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
               />
               <Route 
                 path="/about" 
@@ -100,6 +132,10 @@ function App() {
               <Route 
                 path="/checkout" 
                 element={<Checkout cartItems={cartItems} clearCart={clearCart} />} 
+              />
+              <Route 
+                path="/wishlist" 
+                element={<Wishlist wishlistItems={wishlistItems} addToCart={addToCart} removeFromWishlist={removeFromWishlist} />} 
               />
             </Routes>
           </main>

@@ -6,7 +6,7 @@ import SearchBar from '../components/SearchBar';
 import CategoryFilter from '../components/CategoryFilter';
 import { products, categories } from '../data/products';
 
-const Products = ({ addToCart }) => {
+const Products = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -141,6 +141,9 @@ const Products = ({ addToCart }) => {
                 key={product.id}
                 product={product}
                 addToCart={addToCart}
+                addToWishlist={addToWishlist}
+                removeFromWishlist={removeFromWishlist}
+                isInWishlist={isInWishlist}
                 index={index}
               />
             ))}

@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShoppingCart, Menu, X } from 'lucide-react';
+import { ShoppingCart, Heart, Menu, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const Navbar = ({ cartItems, toggleCart }) => {
+const Navbar = ({ cartItems, wishlistItems = [], toggleCart }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   
   const cartItemsCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const wishlistCount = wishlistItems.length;
 
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
@@ -54,11 +55,42 @@ const Navbar = ({ cartItems, toggleCart }) => {
               >
                 Contact
               </Link>
+              <Link
+                to="/wishlist"
+                className="text-gray-900 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                aria-label="View wishlist"
+              >
+                Wishlist
+              </Link>
             </div>
           </div>
 
-          {/* Cart Icon */}
+          {/* Icons */}
           <div className="flex items-center space-x-4">
+            {/* Wishlist Icon */}
+            <Link to="/wishlist">
+              <motion.div
+                className="relative p-2 text-gray-600 hover:text-primary-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded-lg cursor-pointer"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                aria-label={`Wishlist with ${wishlistCount} items`}
+              >
+                <Heart className="h-6 w-6" />
+                {wishlistCount > 0 && (
+                  <motion.span 
+                    className="absolute -top-1 -right-1 bg-secondary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    aria-hidden="true"
+                  >
+                    {wishlistCount}
+                  </motion.span>
+                )}
+              </motion.div>
+            </Link>
+
+            {/* Cart Icon */}
             <motion.button
               onClick={toggleCart}
               className="relative p-2 text-gray-600 hover:text-primary-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded-lg"
@@ -69,7 +101,7 @@ const Navbar = ({ cartItems, toggleCart }) => {
               <ShoppingCart className="h-6 w-6" />
               {cartItemsCount > 0 && (
                 <motion.span 
-                  className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
@@ -138,6 +170,14 @@ const Navbar = ({ cartItems, toggleCart }) => {
               aria-label="Contact us"
             >
               Contact
+            </Link>
+            <Link
+              to="/wishlist"
+              className="text-gray-900 hover:text-primary-600 block px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              onClick={() => setIsMenuOpen(false)}
+              aria-label="View wishlist"
+            >
+              Wishlist
             </Link>
           </div>
         </motion.div>

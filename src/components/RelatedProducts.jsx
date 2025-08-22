@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import ProductCard from './ProductCard';
 
-const RelatedProducts = ({ currentProductId, currentCategory, products, addToCart }) => {
+const RelatedProducts = ({ currentProductId, currentCategory, products, addToCart, addToWishlist, removeFromWishlist, isInWishlist }) => {
   // Filter products by same category, excluding current product
   const relatedProducts = products
     .filter(product => 
@@ -33,11 +33,14 @@ const RelatedProducts = ({ currentProductId, currentCategory, products, addToCar
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {relatedProducts.map((product, index) => (
+                {relatedProducts.map((product, index) => (
           <ProductCard
             key={product.id}
             product={product}
             addToCart={addToCart}
+            addToWishlist={addToWishlist}
+            removeFromWishlist={removeFromWishlist}
+            isInWishlist={isInWishlist}
             index={index}
           />
         ))}

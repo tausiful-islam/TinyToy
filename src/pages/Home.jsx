@@ -6,7 +6,7 @@ import { Helmet } from 'react-helmet-async';
 import ProductCard from '../components/ProductCard';
 import { featuredProducts } from '../data/products';
 
-const Home = ({ addToCart }) => {
+const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) => {
   return (
     <>
       <Helmet>
@@ -136,6 +136,9 @@ const Home = ({ addToCart }) => {
                 key={product.id}
                 product={product}
                 addToCart={addToCart}
+                addToWishlist={addToWishlist}
+                removeFromWishlist={removeFromWishlist}
+                isInWishlist={isInWishlist}
                 index={index}
               />
             ))}

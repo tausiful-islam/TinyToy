@@ -6,17 +6,32 @@ import { Helmet } from 'react-helmet-async';
 import { products, sampleReviews } from '../data/products';
 import RelatedProducts from '../components/RelatedProducts';
 
-const ProductDetail = ({ addToCart }) => {
+const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) => {
   const { id } = useParams();
   const product = products.find(p => p.id === parseInt(id));
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showReviews, setShowReviews] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+
+  const isProductInWishlist = isInWishlist && product ? isInWishlist(product.id) : false;
 
   const handleAddToCart = () => {
     addToCart(product);
     setIsAddingToCart(true);
     setTimeout(() => setIsAddingToCart(false), 300);
+  };
+
+  const handleToggleWishlist = () => {
+    if (!addToWishlist || !removeFromWishlist) return;
+    
+    setIsTogglingWishlist(true);
+    if (isProductInWishlist) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
+    setTimeout(() => setIsTogglingWishlist(false), 300);
   };
 
   if (!product) {
@@ -214,13 +229,25 @@ const ProductDetail = ({ addToCart }) => {
                 </motion.button>
                 
                 <motion.button 
-                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 px-8 py-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center space-x-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  onClick={handleToggleWishlist}
+                  className={`w-full px-8 py-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center space-x-3 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isProductInWishlist 
+                      ? 'bg-secondary text-white hover:bg-secondary/90 focus:ring-secondary' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-800 focus:ring-gray-500'
+                  }`}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  aria-label={`Add ${product.name} to wishlist`}
+                  animate={isTogglingWishlist ? {
+                    scale: [1, 1.1, 1],
+                    transition: { 
+                      duration: 0.3,
+                      ease: "easeInOut"
+                    }
+                  } : {}}
+                  aria-label={`${isProductInWishlist ? 'Remove' : 'Add'} ${product.name} ${isProductInWishlist ? 'from' : 'to'} wishlist`}
                 >
-                  <Heart className="h-6 w-6" />
-                  <span>Add to Wishlist</span>
+                  <Heart className={`h-6 w-6 ${isProductInWishlist ? 'fill-current' : ''}`} />
+                  <span>{isProductInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</span>
                 </motion.button>
               </div>
             </motion.div>
@@ -297,6 +324,9 @@ const ProductDetail = ({ addToCart }) => {
             currentCategory={product.category}
             products={products}
             addToCart={addToCart}
+            addToWishlist={addToWishlist}
+            removeFromWishlist={removeFromWishlist}
+            isInWishlist={isInWishlist}
           />
         </div>
       </div>

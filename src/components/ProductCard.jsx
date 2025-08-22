@@ -1,14 +1,31 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Heart } from 'lucide-react';
 
-const ProductCard = ({ product, addToCart, index = 0 }) => {
+const ProductCard = ({ product, addToCart, addToWishlist, removeFromWishlist, isInWishlist, index = 0 }) => {
   const [isClicked, setIsClicked] = useState(false);
+  const [isWishlistClicked, setIsWishlistClicked] = useState(false);
+
+  const isProductInWishlist = isInWishlist ? isInWishlist(product.id) : false;
 
   const handleAddToCart = () => {
     addToCart(product);
     setIsClicked(true);
     setTimeout(() => setIsClicked(false), 300);
+  };
+
+  const handleToggleWishlist = (e) => {
+    e.preventDefault(); // Prevent navigation if this is inside a Link
+    if (!addToWishlist || !removeFromWishlist) return;
+    
+    setIsWishlistClicked(true);
+    if (isProductInWishlist) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
+    setTimeout(() => setIsWishlistClicked(false), 300);
   };
 
   return (
@@ -36,6 +53,39 @@ const ProductCard = ({ product, addToCart, index = 0 }) => {
           initial={{ opacity: 0 }}
           whileHover={{ opacity: 1 }}
         />
+        
+        {/* Wishlist Heart Icon */}
+        {addToWishlist && removeFromWishlist && (
+          <motion.div className="absolute top-3 right-3 group/wishlist">
+            <motion.button
+              onClick={handleToggleWishlist}
+              className={`p-2 rounded-full shadow-md transition-all duration-200 ${
+                isProductInWishlist 
+                  ? 'bg-secondary text-white hover:bg-secondary/90' 
+                  : 'bg-white/90 text-gray-600 hover:bg-white hover:text-secondary'
+              }`}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              animate={isWishlistClicked ? {
+                scale: [1, 1.3, 1],
+                transition: { 
+                  duration: 0.3,
+                  ease: "easeInOut"
+                }
+              } : {}}
+              aria-label={`${isProductInWishlist ? 'Remove from' : 'Add to'} wishlist`}
+            >
+              <Heart 
+                className={`h-5 w-5 ${isProductInWishlist ? 'fill-current' : ''}`} 
+              />
+            </motion.button>
+            
+            {/* Tooltip */}
+            <div className="absolute top-full right-0 mt-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover/wishlist:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+              {isProductInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            </div>
+          </motion.div>
+        )}
       </div>
       
       <div className="p-6">
