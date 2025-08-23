@@ -1,20 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Star, ShoppingCart, Heart, User } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingCart, Heart, User, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
-import { products, sampleReviews } from '../data/products';
+import { productService } from '../services/database.js';
 import RelatedProducts from '../components/RelatedProducts';
 
 const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) => {
   const { id } = useParams();
-  const product = products.find(p => p.id === parseInt(id));
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showReviews, setShowReviews] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+  
+  // Review management state
+  const [reviews, setReviews] = useState([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [newReview, setNewReview] = useState({
+    name: '',
+    comment: '',
+    rating: 5
+  });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   const isProductInWishlist = isInWishlist && product ? isInWishlist(product.id) : false;
+
+  // Load product from Supabase
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await productService.getProducts({ id: parseInt(id) });
+        if (error) throw new Error(error);
+        if (data && data.length > 0) {
+          setProduct(data[0]);
+        }
+      } catch (err) {
+        console.error('Error fetching product:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchProduct();
+    }
+  }, [id]);
+
+  // Load reviews from localStorage on component mount
+  useEffect(() => {
+    if (product) {
+      const storageKey = `reviews_${product.id}`;
+      const storedReviews = localStorage.getItem(storageKey);
+      
+      if (storedReviews) {
+        setReviews(JSON.parse(storedReviews));
+      } else {
+        // Initialize with empty reviews for now
+        setReviews([]);
+      }
+    }
+  }, [product]);
 
   const handleAddToCart = () => {
     addToCart(product);
@@ -33,6 +81,77 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     }
     setTimeout(() => setIsTogglingWishlist(false), 300);
   };
+
+  const handleReviewSubmit = (e) => {
+    e.preventDefault();
+    
+    // Basic validation
+    if (!newReview.name.trim() || !newReview.comment.trim()) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    setIsSubmittingReview(true);
+
+    // Create new review object
+    const review = {
+      id: Date.now(), // Simple ID generation
+      name: newReview.name.trim(),
+      comment: newReview.comment.trim(),
+      rating: newReview.rating,
+      date: new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      })
+    };
+
+    // Add to reviews list
+    const updatedReviews = [review, ...reviews];
+    setReviews(updatedReviews);
+
+    // Persist to localStorage
+    const storageKey = `reviews_${product.id}`;
+    localStorage.setItem(storageKey, JSON.stringify(updatedReviews));
+
+    // Reset form
+    setNewReview({
+      name: '',
+      comment: '',
+      rating: 5
+    });
+
+    setIsSubmittingReview(false);
+    setShowReviewForm(false);
+
+    // Show success message (optional)
+    setTimeout(() => {
+      alert('Thank you for your review!');
+    }, 300);
+  };
+
+  const handleInputChange = (field, value) => {
+    setNewReview(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  if (loading) {
+    return (
+      <motion.div 
+        className="min-h-screen flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading product...</p>
+        </div>
+      </motion.div>
+    );
+  }
 
   if (!product) {
     return (
@@ -56,8 +175,6 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     );
   }
 
-  const reviews = sampleReviews[product.id] || [];
-
   const renderStars = (rating) => {
     return [...Array(5)].map((_, i) => (
       <Star
@@ -67,11 +184,67 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     ));
   };
 
+  const renderStarSelector = (currentRating, onRatingChange) => {
+    return [...Array(5)].map((_, i) => (
+      <button
+        key={i}
+        type="button"
+        onClick={() => onRatingChange(i + 1)}
+        className={`h-8 w-8 transition-colors duration-200 ${
+          i < currentRating ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-300'
+        }`}
+        aria-label={`Rate ${i + 1} stars`}
+      >
+        <Star className={`h-full w-full ${i < currentRating ? 'fill-current' : ''}`} />
+      </button>
+    ));
+  };
+
   return (
     <>
       <Helmet>
-        <title>{product.name} - JoyfulFinds</title>
-        <meta name="description" content={product.description} />
+  <title>{product.name} - Its My Choicee | Premium Quality Products</title>
+        <meta name="description" content={`${product.description} - Shop ${product.name} at TinyToy. Premium quality, designed for everyday joy.`} />
+        <meta name="keywords" content={`${product.name}, ${product.category}, toys, home decor, TinyToy`} />
+        
+        {/* OpenGraph Meta Tags */}
+  <meta property="og:title" content={`${product.name} - Its My Choicee`} />
+        <meta property="og:description" content={product.description} />
+        <meta property="og:type" content="product" />
+        <meta property="og:url" content={`https://tinytoy.com/product/${product.id}`} />
+        <meta property="og:image" content={product.image} />
+        <meta property="og:price:amount" content={product.price} />
+        <meta property="og:price:currency" content="USD" />
+        
+        {/* Twitter Card Meta Tags */}
+        <meta name="twitter:card" content="product" />
+  <meta name="twitter:title" content={`${product.name} - Its My Choicee`} />
+        <meta name="twitter:description" content={product.description} />
+        <meta name="twitter:image" content={product.image} />
+        
+        {/* Product Schema */}
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Product",
+            "name": product.name,
+            "description": product.description,
+            "image": product.image,
+            "brand": "TinyToy",
+            "category": product.category,
+            "offers": {
+              "@type": "Offer",
+              "price": product.price,
+              "priceCurrency": "USD",
+              "availability": "https://schema.org/InStock"
+            },
+            "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": product.rating,
+              "reviewCount": reviews.length
+            }
+          })}
+        </script>
       </Helmet>
       <motion.div 
         className="min-h-screen bg-gray-50 pt-16"
@@ -261,18 +434,113 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
             transition={{ duration: 0.5, delay: 0.4 }}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Customer Reviews</h2>
-              <motion.button
-                onClick={() => setShowReviews(!showReviews)}
-                className="text-primary-600 hover:text-primary-700 font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded-lg px-2 py-1"
-                whileHover={{ scale: 1.05 }}
-                aria-expanded={showReviews}
-                aria-label={showReviews ? "Hide reviews" : "Show reviews"}
-              >
-                {showReviews ? 'Hide Reviews' : 'Show Reviews'}
-              </motion.button>
+              <h2 className="text-2xl font-bold text-gray-900">
+                Customer Reviews ({reviews.length})
+              </h2>
+              <div className="flex gap-3">
+                <motion.button
+                  onClick={() => setShowReviewForm(!showReviewForm)}
+                  className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label="Write a review"
+                >
+                  Write a Review
+                </motion.button>
+                <motion.button
+                  onClick={() => setShowReviews(!showReviews)}
+                  className="text-primary-600 hover:text-primary-700 font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded-lg px-2 py-1"
+                  whileHover={{ scale: 1.05 }}
+                  aria-expanded={showReviews}
+                  aria-label={showReviews ? "Hide reviews" : "Show reviews"}
+                >
+                  {showReviews ? 'Hide Reviews' : 'Show Reviews'}
+                </motion.button>
+              </div>
             </div>
 
+            {/* Write a Review Form */}
+            <AnimatePresence>
+              {showReviewForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="mb-8 bg-gray-50 rounded-xl p-6"
+                >
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Write Your Review</h3>
+                  <form onSubmit={handleReviewSubmit} className="space-y-4">
+                    <div>
+                      <label htmlFor="reviewName" className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Name
+                      </label>
+                      <input
+                        type="text"
+                        id="reviewName"
+                        value={newReview.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200"
+                        placeholder="Enter your name"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Rating
+                      </label>
+                      <div className="flex items-center gap-1">
+                        {renderStarSelector(newReview.rating, (rating) => handleInputChange('rating', rating))}
+                        <span className="ml-2 text-sm text-gray-600">
+                          ({newReview.rating} star{newReview.rating !== 1 ? 's' : ''})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="reviewComment" className="block text-sm font-medium text-gray-700 mb-2">
+                        Your Review
+                      </label>
+                      <textarea
+                        id="reviewComment"
+                        value={newReview.comment}
+                        onChange={(e) => handleInputChange('comment', e.target.value)}
+                        rows={4}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors duration-200 resize-none"
+                        placeholder="Share your thoughts about this product..."
+                        required
+                      />
+                    </div>
+
+                    <div className="flex gap-3">
+                      <motion.button
+                        type="submit"
+                        disabled={isSubmittingReview}
+                        className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 disabled:bg-primary-300 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                        whileHover={{ scale: isSubmittingReview ? 1 : 1.02 }}
+                        whileTap={{ scale: isSubmittingReview ? 1 : 0.98 }}
+                      >
+                        <Send className="h-4 w-4" />
+                        {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                      </motion.button>
+                      
+                      <motion.button
+                        type="button"
+                        onClick={() => setShowReviewForm(false)}
+                        className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Cancel
+                      </motion.button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Reviews List */}
             <AnimatePresence>
               {showReviews && (
                 <motion.div

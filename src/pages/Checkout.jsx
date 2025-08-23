@@ -1,26 +1,33 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CreditCard, MapPin, User, Check } from 'lucide-react';
+import { ArrowLeft, CreditCard, MapPin, User, Check, Truck, Phone } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { orderService } from '../services/database.js';
+import { PAYMENT_METHODS } from '../lib/supabase.js';
 
 const Checkout = ({ cartItems, clearCart }) => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     address: '',
     city: '',
     zipCode: '',
-    cardNumber: '',
-    expiryDate: '',
-    cvv: ''
+    paymentMethod: PAYMENT_METHODS.COD // Default to Cash on Delivery
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [orderNumber, setOrderNumber] = useState(null);
+  const [error, setError] = useState(null);
 
   const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const shipping = total > 50 ? 0 : 9.99;
   const tax = total * 0.08;
-  const finalTotal = total + shipping + tax;
+  const codFee = formData.paymentMethod === PAYMENT_METHODS.COD ? 2.99 : 0;
+  const bankTransferFee = formData.paymentMethod === PAYMENT_METHODS.BANK_TRANSFER ? 1.99 : 0;
+  const finalTotal = total + shipping + tax + codFee + bankTransferFee;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -28,22 +35,82 @@ const Checkout = ({ cartItems, clearCart }) => {
       ...prev,
       [name]: value
     }));
+    // Clear error when user starts typing
+    if (error) setError(null);
   };
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    const required = ['name', 'email', 'phone', 'address', 'city'];
+    for (let field of required) {
+      if (!formData[field].trim()) {
+        return `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+      }
+    }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      return 'Please enter a valid email address';
+    }
+
+    // Phone validation
+    const phoneRegex = /^\+?[\d\s-()]{10,}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      return 'Please enter a valid phone number';
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitted(true);
-    // Clear cart after successful order
-    setTimeout(() => {
+    setError(null);
+    
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Prepare order data
+      const orderData = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        address: `${formData.address.trim()}, ${formData.city.trim()}, ${formData.zipCode.trim()}`,
+        paymentMethod: formData.paymentMethod,
+        total: finalTotal
+      };
+
+      // Create order in database
+      const { data, error: orderError } = await orderService.createOrder(orderData, cartItems);
+      
+      if (orderError) throw new Error(orderError);
+
+      // Success - show confirmation
+      setOrderNumber(data.order.id);
+      setIsSubmitted(true);
+      
+      // Clear cart after successful order
       if (clearCart) clearCart();
-    }, 2000);
+      
+    } catch (err) {
+      console.error('Order creation failed:', err);
+      setError(err.message || 'Failed to place order. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
     return (
       <>
         <Helmet>
-          <title>Order Confirmed - JoyfulFinds</title>
+            <title>Order Confirmed - Its My Choicee</title>
           <meta name="description" content="Your order has been confirmed successfully" />
         </Helmet>
         <motion.div 
@@ -69,22 +136,38 @@ const Checkout = ({ cartItems, clearCart }) => {
             >
               Order Confirmed!
             </motion.h1>
-            <motion.p 
-              className="text-gray-600 mb-8"
+            <motion.div 
+              className="bg-white rounded-lg p-6 mb-6 border"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              Thank you for your order! We'll send you a confirmation email shortly.
-            </motion.p>
+              <p className="text-lg font-semibold text-gray-900 mb-2">Order #{orderNumber}</p>
+              <p className="text-gray-600 mb-4">
+                Thank you {formData.name}! Your order has been placed successfully.
+              </p>
+              <div className="text-sm text-gray-500 space-y-1">
+                <p>📧 Confirmation sent to: {formData.email}</p>
+                <p>📱 We'll contact you at: {formData.phone}</p>
+                <p>💰 Payment: {formData.paymentMethod}</p>
+                <p>📦 We will contact you soon to confirm your order</p>
+              </div>
+            </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
+              className="space-y-3"
             >
               <Link
+                to={`/order/${orderNumber}`}
+                className="block w-full bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              >
+                Track Your Order
+              </Link>
+              <Link
                 to="/"
-                className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                className="block w-full bg-gray-100 hover:bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
               >
                 Continue Shopping
               </Link>
@@ -99,8 +182,8 @@ const Checkout = ({ cartItems, clearCart }) => {
     return (
       <>
         <Helmet>
-          <title>Checkout - JoyfulFinds</title>
-          <meta name="description" content="Complete your purchase at JoyfulFinds" />
+            <title>Checkout - Its My Choicee</title>
+            <meta name="description" content="Complete your purchase at Its My Choicee" />
         </Helmet>
         <div className="min-h-screen bg-gray-50 pt-16 flex items-center justify-center">
           <div className="text-center">
@@ -121,8 +204,8 @@ const Checkout = ({ cartItems, clearCart }) => {
   return (
     <>
       <Helmet>
-        <title>Checkout - JoyfulFinds</title>
-        <meta name="description" content="Complete your purchase at JoyfulFinds" />
+  <title>Checkout - Its My Choicee</title>
+  <meta name="description" content="Complete your purchase at Its My Choicee" />
       </Helmet>
       <motion.div 
         className="min-h-screen bg-gray-50 pt-16"
@@ -166,7 +249,7 @@ const Checkout = ({ cartItems, clearCart }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name
+                        Full Name *
                       </label>
                       <input
                         type="text"
@@ -180,20 +263,36 @@ const Checkout = ({ cartItems, clearCart }) => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number *
                       </label>
                       <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        value={formData.email}
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={formData.phone}
                         onChange={handleInputChange}
+                        placeholder="+1 (555) 123-4567"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
                         required
-                        aria-label="Enter your email address"
+                        aria-label="Enter your phone number"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
+                      required
+                      aria-label="Enter your email address"
+                    />
                   </div>
                 </div>
 
@@ -206,7 +305,7 @@ const Checkout = ({ cartItems, clearCart }) => {
                   <div className="space-y-4">
                     <div>
                       <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                        Street Address
+                        Street Address *
                       </label>
                       <input
                         type="text"
@@ -222,7 +321,7 @@ const Checkout = ({ cartItems, clearCart }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                          City
+                          City *
                         </label>
                         <input
                           type="text"
@@ -254,73 +353,162 @@ const Checkout = ({ cartItems, clearCart }) => {
                   </div>
                 </div>
 
-                {/* Payment Information */}
+                {/* Payment Method Selection */}
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <CreditCard className="h-5 w-5 mr-2" />
-                    Payment Information
+                    Payment Method
                   </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                        Card Number
-                      </label>
+                  
+                  <div className="space-y-3 mb-6">
+                    {/* Cash on Delivery Option */}
+                    <motion.label 
+                      className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                        formData.paymentMethod === PAYMENT_METHODS.COD 
+                          ? 'border-primary-500 bg-primary-50' 
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
                       <input
-                        type="text"
-                        id="cardNumber"
-                        name="cardNumber"
-                        value={formData.cardNumber}
+                        type="radio"
+                        name="paymentMethod"
+                        value={PAYMENT_METHODS.COD}
+                        checked={formData.paymentMethod === PAYMENT_METHODS.COD}
                         onChange={handleInputChange}
-                        placeholder="1234 5678 9012 3456"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
-                        required
-                        aria-label="Enter your card number"
+                        className="sr-only"
                       />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-2">
-                          Expiry Date
-                        </label>
-                        <input
-                          type="text"
-                          id="expiryDate"
-                          name="expiryDate"
-                          value={formData.expiryDate}
-                          onChange={handleInputChange}
-                          placeholder="MM/YY"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
-                          required
-                          aria-label="Enter card expiry date"
-                        />
+                      <div className="flex items-center w-full">
+                        <Truck className="h-6 w-6 text-gray-600 mr-3" />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">Cash on Delivery</div>
+                          <div className="text-sm text-gray-500">Pay when your order arrives</div>
+                        </div>
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          formData.paymentMethod === PAYMENT_METHODS.COD 
+                            ? 'border-primary-500 bg-primary-500' 
+                            : 'border-gray-300'
+                        }`}>
+                          {formData.paymentMethod === PAYMENT_METHODS.COD && (
+                            <div className="w-2 h-2 rounded-full bg-white"></div>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-2">
-                          CVV
-                        </label>
-                        <input
-                          type="text"
-                          id="cvv"
-                          name="cvv"
-                          value={formData.cvv}
-                          onChange={handleInputChange}
-                          placeholder="123"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
-                          required
-                          aria-label="Enter card CVV"
-                        />
+                    </motion.label>
+
+                    {/* Bank Transfer Option */}
+                    <motion.label 
+                      className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                        formData.paymentMethod === PAYMENT_METHODS.BANK_TRANSFER 
+                          ? 'border-primary-500 bg-primary-50' 
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={PAYMENT_METHODS.BANK_TRANSFER}
+                        checked={formData.paymentMethod === PAYMENT_METHODS.BANK_TRANSFER}
+                        onChange={handleInputChange}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center w-full">
+                        <CreditCard className="h-6 w-6 text-gray-600 mr-3" />
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">Bank Transfer</div>
+                          <div className="text-sm text-gray-500">Pay directly to our bank account</div>
+                        </div>
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          formData.paymentMethod === PAYMENT_METHODS.BANK_TRANSFER 
+                            ? 'border-primary-500 bg-primary-500' 
+                            : 'border-gray-300'
+                        }`}>
+                          {formData.paymentMethod === PAYMENT_METHODS.BANK_TRANSFER && (
+                            <div className="w-2 h-2 rounded-full bg-white"></div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </motion.label>
                   </div>
+
+                  {/* Cash on Delivery Note */}
+                  {formData.paymentMethod === PAYMENT_METHODS.COD && (
+                    <motion.div 
+                      className="bg-yellow-50 border border-yellow-200 rounded-lg p-4"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="flex items-start">
+                        <Truck className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-medium text-yellow-800">Cash on Delivery</h4>
+                          <p className="text-sm text-yellow-700 mt-1">
+                            You can pay in cash when your order is delivered to your doorstep. 
+                            Please keep the exact amount ready for a smooth delivery experience.
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Bank Transfer Note */}
+                  {formData.paymentMethod === PAYMENT_METHODS.BANK_TRANSFER && (
+                    <motion.div 
+                      className="bg-blue-50 border border-blue-200 rounded-lg p-4"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="flex items-start">
+                        <CreditCard className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                        <div>
+                          <h4 className="text-sm font-medium text-blue-800">Bank Transfer Details</h4>
+                          <div className="text-sm text-blue-700 mt-2 space-y-1">
+                            <p><strong>Bank:</strong> Its My Choicee Bank</p>
+                            <p><strong>Account Number:</strong> 1234567890</p>
+                            <p><strong>Account Name:</strong> Its My Choicee Store</p>
+                            <p><strong>Reference:</strong> Please use Order #{orderNumber || 'PENDING'} as reference</p>
+                            <p className="mt-2 text-xs">Please transfer the exact amount and send payment confirmation to our WhatsApp.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
+
+                {/* Error Message */}
+                {error && (
+                  <motion.div 
+                    className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <p className="text-red-700 text-sm">{error}</p>
+                  </motion.div>
+                )}
 
                 <motion.button
                   type="submit"
-                  className="w-full bg-primary-500 hover:bg-primary-600 text-white py-3 px-6 rounded-lg font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  disabled={isLoading}
+                  className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-3 px-6 rounded-lg font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                  whileHover={{ scale: isLoading ? 1 : 1.02 }}
+                  whileTap={{ scale: isLoading ? 1 : 0.98 }}
                 >
-                  Place Order
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    `Place Order - ${formData.paymentMethod}`
+                  )}
                 </motion.button>
               </form>
             </motion.div>
@@ -372,6 +560,18 @@ const Checkout = ({ cartItems, clearCart }) => {
                   <span>Tax</span>
                   <span>${tax.toFixed(2)}</span>
                 </div>
+                {formData.paymentMethod === PAYMENT_METHODS.COD && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Cash on Delivery Fee</span>
+                    <span>${codFee.toFixed(2)}</span>
+                  </div>
+                )}
+                {formData.paymentMethod === PAYMENT_METHODS.BANK_TRANSFER && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Bank Transfer Fee</span>
+                    <span>${bankTransferFee.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="border-t pt-2 flex justify-between text-lg font-bold text-gray-900">
                   <span>Total</span>
                   <span>${finalTotal.toFixed(2)}</span>

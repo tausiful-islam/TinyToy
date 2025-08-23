@@ -1,17 +1,37 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Heart, Sparkles, Gift } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import ProductCard from '../components/ProductCard';
-import { featuredProducts } from '../data/products';
+import { productService } from '../services/database.js';
 
 const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) => {
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await productService.getProducts({ limit: 8 });
+        if (error) throw new Error(error);
+        setFeaturedProducts(data || []);
+      } catch (err) {
+        console.error('Error fetching featured products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeaturedProducts();
+  }, []);
+
   return (
     <>
-      <Helmet>
-        <title>JoyfulFinds - Discover Products That Spark Joy</title>
-        <meta name="description" content="Curated collection of beautiful, positive products designed to bring happiness and joy to your everyday life." />
+            <Helmet>
+        <title>Its My Choicee - Your Personal Shopping Destination</title>
+        <meta name="description" content="Discover amazing products tailored to your unique style and preferences. At Its My Choicee, every purchase reflects your personal taste." />
       </Helmet>
       <div className="min-h-screen">
       {/* Hero Section */}
@@ -37,13 +57,11 @@ const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) =>
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
             >
-              Discover Products That
+              Your Style, Your Choice
               <span className="block bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
-                Spark Joy
+                Its My Choicee
               </span>
-            </motion.h1>
-            
-            <motion.p 
+            </motion.h1>            <motion.p 
               className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -131,17 +149,29 @@ const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) =>
             transition={{ duration: 0.6, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            {featuredProducts.map((product, index) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                addToCart={addToCart}
-                addToWishlist={addToWishlist}
-                removeFromWishlist={removeFromWishlist}
-                isInWishlist={isInWishlist}
-                index={index}
-              />
-            ))}
+            {loading ? (
+              // Loading skeleton for featured products
+              Array(8).fill(0).map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="bg-gray-200 rounded-lg h-64 mb-4"></div>
+                  <div className="bg-gray-200 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-200 h-3 rounded w-3/4 mb-2"></div>
+                  <div className="bg-gray-200 h-4 rounded w-1/2"></div>
+                </div>
+              ))
+            ) : (
+              featuredProducts.map((product, index) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  addToCart={addToCart}
+                  addToWishlist={addToWishlist}
+                  removeFromWishlist={removeFromWishlist}
+                  isInWishlist={isInWishlist}
+                  index={index}
+                />
+              ))
+            )}
           </motion.div>
           
           <motion.div 

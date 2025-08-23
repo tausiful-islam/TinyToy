@@ -17,11 +17,11 @@ const Navbar = ({ cartItems, wishlistItems = [], toggleCart }) => {
           <Link 
             to="/" 
             className="flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded-lg px-2 py-1"
-            aria-label="JoyfulFinds homepage"
+            aria-label="Its My Choicee homepage"
           >
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent">
-              JoyfulFinds
-            </h1>
+            <span className="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">
+              Its My Choicee
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -101,7 +101,7 @@ const Navbar = ({ cartItems, wishlistItems = [], toggleCart }) => {
               <ShoppingCart className="h-6 w-6" />
               {cartItemsCount > 0 && (
                 <motion.span 
-                  className="absolute -top-1 -right-1 bg-primary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 bg-primary-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
