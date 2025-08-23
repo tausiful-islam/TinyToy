@@ -1,9 +1,6 @@
 -- Supabase Database Schema for E-commerce Store
 -- Copy and execute these SQL statements in your Supabase SQL editor
 
--- Enable RLS (Row Level Security)
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
-
 -- Create products table
 CREATE TABLE IF NOT EXISTS products (
   id BIGSERIAL PRIMARY KEY,
@@ -335,7 +332,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE polname = 'Variants are viewable by everyone'
+    WHERE policyname = 'Variants are viewable by everyone'
       AND tablename = 'product_variants'
   ) THEN
     CREATE POLICY "Variants are viewable by everyone" ON product_variants
