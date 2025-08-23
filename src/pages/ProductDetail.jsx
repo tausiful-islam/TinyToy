@@ -14,6 +14,8 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
   const [showReviews, setShowReviews] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
   
   // Review management state
   const [reviews, setReviews] = useState([]);
@@ -67,6 +69,38 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
         setReviews([]);
       }
     }
+  }, [product]);
+
+  // Fetch related products from the same category
+  useEffect(() => {
+    const fetchRelatedProducts = async () => {
+      if (!product) return;
+      
+      try {
+        setLoadingRelated(true);
+        const { data, error } = await productService.getProducts({ 
+          category: product.category,
+          limit: 8 
+        });
+        
+        if (error) throw new Error(error);
+        
+        // Filter out the current product and limit to 4 related products
+        const filtered = (data || [])
+          .filter(p => p.id !== product.id)
+          .slice(0, 4);
+          
+        setRelatedProducts(filtered);
+        console.log('Related products loaded:', filtered);
+      } catch (err) {
+        console.error('Error fetching related products:', err);
+        setRelatedProducts([]);
+      } finally {
+        setLoadingRelated(false);
+      }
+    };
+
+    fetchRelatedProducts();
   }, [product]);
 
   const handleAddToCart = () => {
@@ -601,7 +635,8 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
           <RelatedProducts 
             currentProductId={product.id}
             currentCategory={product.category}
-            products={products}
+            products={relatedProducts}
+            loading={loadingRelated}
             addToCart={addToCart}
             addToWishlist={addToWishlist}
             removeFromWishlist={removeFromWishlist}
