@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, CreditCard, MapPin, User, Check, Truck, Phone } from 'lucide-react';
+import { ArrowLeft, CreditCard, MapPin, User, Check, Truck, Phone, UserPlus, Lock } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { orderService } from '../services/database.js';
 import { PAYMENT_METHODS } from '../lib/supabase.js';
+import { useAuth } from '../contexts/AuthContext';
 
 const Checkout = ({ cartItems, clearCart }) => {
   const navigate = useNavigate();
+  const { signUp, user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,12 +17,17 @@ const Checkout = ({ cartItems, clearCart }) => {
     address: '',
     city: '',
     zipCode: '',
-    paymentMethod: PAYMENT_METHODS.COD // Default to Cash on Delivery
+    paymentMethod: PAYMENT_METHODS.COD, // Default to Cash on Delivery
+    createAccount: false,
+    password: '',
+    confirmPassword: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [orderNumber, setOrderNumber] = useState(null);
   const [error, setError] = useState(null);
+  const [accountCreated, setAccountCreated] = useState(false);
+  const [accountCreationError, setAccountCreationError] = useState(null);
 
   const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const shipping = total > 50 ? 0 : 9.99;
@@ -59,6 +66,22 @@ const Checkout = ({ cartItems, clearCart }) => {
       return 'Please enter a valid phone number';
     }
 
+    // Password validation when creating account
+    if (formData.createAccount && !user) {
+      if (!formData.password.trim()) {
+        return 'Password is required to create an account';
+      }
+      if (formData.password.length < 6) {
+        return 'Password must be at least 6 characters long';
+      }
+      if (!formData.confirmPassword.trim()) {
+        return 'Please confirm your password';
+      }
+      if (formData.password !== formData.confirmPassword) {
+        return 'Passwords do not match';
+      }
+    }
+
     return null;
   };
 
@@ -87,13 +110,38 @@ const Checkout = ({ cartItems, clearCart }) => {
       };
 
       // Create order in database
-      const { data, error: orderError } = await orderService.createOrder(orderData, cartItems);
+      const { data, error: orderError } = await orderService.createOrder(orderData, cartItems, user);
       
       if (orderError) throw new Error(orderError);
 
       // Success - show confirmation
       setOrderNumber(data.order.id);
       setIsSubmitted(true);
+      
+      // Try to create account if requested
+      if (formData.createAccount && !user) {
+        try {
+          const [firstName, ...lastNameParts] = formData.name.trim().split(' ');
+          const lastName = lastNameParts.join(' ') || firstName;
+
+          const accountResult = await signUp({
+            email: formData.email.trim(),
+            password: formData.password,
+            firstName: firstName,
+            lastName: lastName,
+            marketingEmails: false
+          });
+
+          if (accountResult.success) {
+            setAccountCreated(true);
+          } else {
+            setAccountCreationError(accountResult.error || 'Failed to create account');
+          }
+        } catch (accountError) {
+          console.error('Account creation failed:', accountError);
+          setAccountCreationError('Failed to create account. You can create one later from the login page.');
+        }
+      }
       
       // Clear cart after successful order
       if (clearCart) clearCart();
@@ -152,6 +200,26 @@ const Checkout = ({ cartItems, clearCart }) => {
                 <p>💰 Payment: {formData.paymentMethod}</p>
                 <p>📦 We will contact you soon to confirm your order</p>
               </div>
+
+              {/* Account Creation Status */}
+              {formData.createAccount && !user && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  {accountCreated ? (
+                    <div className="flex items-center justify-center text-green-600 text-sm">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      <span>Account created successfully! Check your email to verify.</span>
+                    </div>
+                  ) : accountCreationError ? (
+                    <div className="text-orange-600 text-sm">
+                      <p className="flex items-center justify-center mb-1">
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Account creation was skipped
+                      </p>
+                      <p className="text-xs text-gray-500">{accountCreationError}</p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </motion.div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -481,6 +549,88 @@ const Checkout = ({ cartItems, clearCart }) => {
                     </motion.div>
                   )}
                 </div>
+
+                {/* Account Creation Section - Only show if user is not logged in */}
+                {!user && (
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <UserPlus className="h-5 w-5 mr-2" />
+                      Create Account (Optional)
+                    </h2>
+                    
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                      <div className="flex items-start">
+                        <input
+                          type="checkbox"
+                          id="createAccount"
+                          name="createAccount"
+                          checked={formData.createAccount}
+                          onChange={handleInputChange}
+                          className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                        <div className="ml-3">
+                          <label htmlFor="createAccount" className="text-sm font-medium text-purple-900">
+                            Create an account for faster future checkouts
+                          </label>
+                          <div className="text-sm text-purple-700 mt-1 space-y-1">
+                            <p>✓ Save your shipping information</p>
+                            <p>✓ Track your orders easily</p>
+                            <p>✓ Access exclusive member offers</p>
+                            <p>✓ Build a wishlist of favorite items</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Password fields - only show when create account is checked */}
+                    {formData.createAccount && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                      >
+                        <div>
+                          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                            Password *
+                          </label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <input
+                              type="password"
+                              id="password"
+                              name="password"
+                              value={formData.password}
+                              onChange={handleInputChange}
+                              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+                              placeholder="Enter password"
+                              minLength="6"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                            Confirm Password *
+                          </label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            <input
+                              type="password"
+                              id="confirmPassword"
+                              name="confirmPassword"
+                              value={formData.confirmPassword}
+                              onChange={handleInputChange}
+                              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-200"
+                              placeholder="Confirm password"
+                              minLength="6"
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                )}
 
                 {/* Error Message */}
                 {error && (

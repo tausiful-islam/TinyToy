@@ -242,36 +242,59 @@ export const variantService = {
 
 // Orders Service
 export const orderService = {
-  // Create new order with variant support
-  async createOrder(orderInput) {
+  // Create new order with variant support and user linking
+  async createOrder(orderInput, cartItems, user = null) {
     try {
-      // Start a transaction-like process
-      const { data: order, error: orderError } = await supabase
-        .from(TABLES.ORDERS)
-        .insert({
+      // Prepare order data - support both old and new formats
+      let orderData;
+      if (cartItems && Array.isArray(cartItems)) {
+        // New format: orderInput is customer data, cartItems is separate
+        orderData = {
+          customer_name: orderInput.name || orderInput.customer_name,
+          customer_email: orderInput.email || orderInput.customer_email,
+          customer_phone: orderInput.phone || orderInput.customer_phone,
+          customer_id: user ? user.id : null, // Link to user if authenticated
+          address: orderInput.address,
+          payment_method: orderInput.paymentMethod || orderInput.payment_method,
+          total: orderInput.total,
+          notes: orderInput.notes || null,
+          status: ORDER_STATUS.PENDING,
+          created_at: new Date().toISOString()
+        };
+      } else {
+        // Legacy format: orderInput contains everything
+        orderData = {
           customer_name: orderInput.customer_name,
           customer_email: orderInput.customer_email,
           customer_phone: orderInput.customer_phone,
+          customer_id: user ? user.id : null, // Link to user if authenticated
           address: orderInput.address,
           payment_method: orderInput.payment_method,
           total: orderInput.total,
           notes: orderInput.notes,
           status: ORDER_STATUS.PENDING,
           created_at: new Date().toISOString()
-        })
+        };
+        cartItems = orderInput.items; // Items are in orderInput for legacy format
+      }
+
+      // Start a transaction-like process
+      const { data: order, error: orderError } = await supabase
+        .from(TABLES.ORDERS)
+        .insert(orderData)
         .select()
         .single()
 
       if (orderError) throw orderError
 
-      // Add order items with variant support
-      const orderItemsData = orderInput.items.map(item => ({
+      // Prepare order items data
+      const orderItemsData = cartItems.map(item => ({
         order_id: order.id,
-        product_id: item.product_id,
-        variant_id: item.variant_id || null,
+        product_id: item.product_id || item.id, // Support both formats
+        variant_id: item.variant_id || item.variant?.id || null,
         attributes: item.attributes || null,
         quantity: item.quantity,
-        price: item.price
+        price: item.variant?.price || item.price // Use variant price if available
       }))
 
       const { data: items, error: itemsError } = await supabase
@@ -282,34 +305,37 @@ export const orderService = {
       if (itemsError) throw itemsError
 
       // Update stock (variant stock if variant exists, otherwise product stock)
-      for (const item of orderInput.items) {
-        if (item.variant_id) {
+      for (const item of cartItems) {
+        const variantId = item.variant_id || item.variant?.id;
+        const productId = item.product_id || item.id;
+        
+        if (variantId) {
           // Update variant stock
           const { data: variant } = await supabase
             .from(TABLES.PRODUCT_VARIANTS)
             .select('stock')
-            .eq('id', item.variant_id)
+            .eq('id', variantId)
             .single()
 
           if (variant) {
             await supabase
               .from(TABLES.PRODUCT_VARIANTS)
               .update({ stock: variant.stock - item.quantity })
-              .eq('id', item.variant_id)
+              .eq('id', variantId)
           }
         } else {
           // Update product stock
           const { data: product } = await supabase
             .from(TABLES.PRODUCTS)
             .select('stock')
-            .eq('id', item.product_id)
+            .eq('id', productId)
             .single()
 
           if (product) {
             await supabase
               .from(TABLES.PRODUCTS)
               .update({ stock: product.stock - item.quantity })
-              .eq('id', item.product_id)
+              .eq('id', productId)
           }
         }
       }
@@ -341,6 +367,55 @@ export const orderService = {
       return { data: order, error: null }
     } catch (error) {
       console.error('Error fetching order:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get orders for a specific user (order history)
+  async getUserOrders(userId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.ORDERS)
+        .select(`
+          *,
+          order_items (
+            *,
+            products (name, image),
+            product_variants (attributes, image)
+          )
+        `)
+        .eq('customer_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error fetching user orders:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get order by ID for a specific user (security check)
+  async getUserOrder(userId, orderId) {
+    try {
+      const { data: order, error: orderError } = await supabase
+        .from(TABLES.ORDERS)
+        .select(`
+          *,
+          order_items (
+            *,
+            products (*),
+            product_variants (*)
+          )
+        `)
+        .eq('id', orderId)
+        .eq('customer_id', userId)
+        .single()
+
+      if (orderError) throw orderError
+      return { data: order, error: null }
+    } catch (error) {
+      console.error('Error fetching user order:', error)
       return { data: null, error: error.message }
     }
   },
@@ -405,6 +480,155 @@ export const authService = {
     }
   },
 
+  // Customer sign up with email verification
+  async signUp(email, password, userData = {}) {
+    try {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        throw new Error('Please enter a valid email address')
+      }
+
+      // Validate password strength
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters long')
+      }
+      if (!/(?=.*[a-z])/.test(password)) {
+        throw new Error('Password must contain at least one lowercase letter')
+      }
+      if (!/(?=.*[A-Z])/.test(password)) {
+        throw new Error('Password must contain at least one uppercase letter')
+      }
+      if (!/(?=.*\d)/.test(password)) {
+        throw new Error('Password must contain at least one number')
+      }
+      if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?])/.test(password)) {
+        throw new Error('Password must contain at least one special character')
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            ...userData,
+            role: 'customer'
+          }
+        }
+      })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error signing up:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Customer sign in
+  async signIn(email, password) {
+    try {
+      // Validate inputs
+      if (!email || !password) {
+        throw new Error('Email and password are required')
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error signing in:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Reset password
+  async resetPassword(email) {
+    try {
+      if (!email) {
+        throw new Error('Email is required')
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        throw new Error('Please enter a valid email address')
+      }
+
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
+      })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error resetting password:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Update password
+  async updatePassword(newPassword) {
+    try {
+      // Validate password strength
+      if (newPassword.length < 8) {
+        throw new Error('Password must be at least 8 characters long')
+      }
+      if (!/(?=.*[a-z])/.test(newPassword)) {
+        throw new Error('Password must contain at least one lowercase letter')
+      }
+      if (!/(?=.*[A-Z])/.test(newPassword)) {
+        throw new Error('Password must contain at least one uppercase letter')
+      }
+      if (!/(?=.*\d)/.test(newPassword)) {
+        throw new Error('Password must contain at least one number')
+      }
+      if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?])/.test(newPassword)) {
+        throw new Error('Password must contain at least one special character')
+      }
+
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error updating password:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Update user profile
+  async updateProfile(updates) {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: updates
+      })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get current user
+  async getUser() {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error) throw error
+      return { data: user, error: null }
+    } catch (error) {
+      console.error('Error getting user:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
   // Get current session
   async getSession() {
     try {
@@ -432,6 +656,29 @@ export const authService = {
   // Listen to auth changes
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
+  },
+
+  // Check if user has specific role
+  hasRole(user, role) {
+    return user?.user_metadata?.role === role
+  },
+
+  // Check if user is admin
+  isAdmin(user) {
+    return this.hasRole(user, 'admin')
+  },
+
+  // Check if user is customer
+  isCustomer(user) {
+    return this.hasRole(user, 'customer') || (!user?.user_metadata?.role && user)
+  },
+
+  // Get user display name
+  getUserDisplayName(user) {
+    if (!user) return null
+    
+    const metadata = user.user_metadata || {}
+    return metadata.full_name || metadata.firstName || user.email || 'User'
   }
 }
 

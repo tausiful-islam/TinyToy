@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Search, Heart, ShoppingCart, Menu, X } from 'lucide-react'
+import { Search, Heart, ShoppingCart, Menu, X, User, LogOut } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [cartItemCount, setCartItemCount] = useState(0)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const { user, signOut, loading } = useAuth()
 
   // Update cart count from localStorage
   useEffect(() => {
@@ -29,11 +32,22 @@ export default function Header() {
     }
   }, [])
 
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      setUserMenuOpen(false)
+      navigate('/')
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
   const handleSearch = (e) => {
     e.preventDefault()
     if (searchQuery.trim()) {
       navigate(`/products?search=${encodeURIComponent(searchQuery.trim())}`)
       setSearchQuery('')
+      setIsMenuOpen(false) // Close mobile menu on search
     }
   }
 
@@ -137,6 +151,51 @@ export default function Header() {
                   </span>
                 )}
               </Link>
+
+              {/* User Authentication */}
+              {user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="p-2 text-gray-600 hover:text-purple-600 transition-colors relative"
+                    title="Account"
+                  >
+                    <User className="w-6 h-6" />
+                  </button>
+
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                      <div className="px-4 py-2 border-b border-gray-200">
+                        <p className="text-sm font-medium text-gray-900">
+                          {user.email}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Link
+                    to="/login"
+                    className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-purple-600 transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="px-3 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
 
@@ -243,6 +302,44 @@ export default function Header() {
                   </div>
                   <span className="text-xs">Cart</span>
                 </Link>
+              </div>
+
+              {/* Mobile Authentication */}
+              <div className="border-t border-gray-200 pt-2 mt-2">
+                {user ? (
+                  <div className="space-y-2">
+                    <div className="px-3 py-2 text-sm text-gray-700">
+                      {user.email}
+                    </div>
+                    <button
+                      onClick={() => {
+                        handleLogout()
+                        setIsMenuOpen(false)
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:text-purple-600 transition-colors flex items-center"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Link
+                      to="/login"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block px-3 py-2 text-sm font-medium text-gray-700 hover:text-purple-600 transition-colors"
+                    >
+                      Login
+                    </Link>
+                    <Link
+                      to="/signup"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="block px-3 py-2 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-center"
+                    >
+                      Sign Up
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>

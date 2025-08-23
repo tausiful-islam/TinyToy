@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
 import Cart from './components/Cart';
 import Footer from './components/Footer';
@@ -13,40 +14,16 @@ import Checkout from './pages/Checkout';
 import CartPage from './pages/Cart';
 import Wishlist from './pages/Wishlist';
 import OrderTracking from './pages/OrderTracking';
+import Login from './pages/Login';
+import SignUp from './pages/SignUp';
 import AdminLogin from './pages/AdminLogin';
 import AdminOrders from './pages/AdminOrders';
 import ProtectedRoute from './components/ProtectedRoute';
-import { authService } from './services/database.js';
 
 function App() {
   const [cartItems, setCartItems] = useState([]);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Check authentication state on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: session } = await authService.getSession();
-        setUser(session?.user || null);
-      } catch (error) {
-        console.error('Error checking auth:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-
-    // Listen for auth changes
-    const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
-      setUser(session?.user || null);
-    });
-
-    return () => subscription?.unsubscribe();
-  }, []);
 
   // Load cart from localStorage on mount
   useEffect(() => {
@@ -170,87 +147,86 @@ function App() {
     setIsCartOpen(!isCartOpen);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <HelmetProvider>
-      <Router>
-        <div className="App min-h-screen bg-gray-50">
-          <Header />
-          
-          <Cart
-            isOpen={isCartOpen}
-            toggleCart={toggleCart}
-            cartItems={cartItems}
-            updateQuantity={updateQuantity}
-            removeFromCart={removeFromCart}
-          />
+      <AuthProvider>
+        <Router>
+          <div className="App min-h-screen bg-gray-50">
+            <Header />
+            
+            <Cart
+              isOpen={isCartOpen}
+              toggleCart={toggleCart}
+              cartItems={cartItems}
+              updateQuantity={updateQuantity}
+              removeFromCart={removeFromCart}
+            />
 
-          <main>
-            <Routes>
-              <Route 
-                path="/" 
-                element={<Home addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
-              />
-              <Route 
-                path="/products" 
-                element={<Products addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
-              />
-              <Route 
-                path="/product/:id" 
-                element={<ProductDetail addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
-              />
-              <Route 
-                path="/cart" 
-                element={<CartPage cartItems={cartItems} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} 
-              />
-              <Route 
-                path="/about" 
-                element={<About />} 
-              />
-              <Route 
-                path="/contact" 
-                element={<Contact />} 
-              />
-              <Route 
-                path="/checkout" 
-                element={<Checkout cartItems={cartItems} clearCart={clearCart} />} 
-              />
-              <Route 
-                path="/wishlist" 
-                element={<Wishlist wishlistItems={wishlistItems} addToCart={addToCart} removeFromWishlist={removeFromWishlist} />} 
-              />
-              <Route 
-                path="/order/:orderId" 
-                element={<OrderTracking />} 
-              />
-              <Route 
-                path="/admin/login" 
-                element={<AdminLogin />} 
-              />
-              <Route 
-                path="/admin/orders" 
-                element={
-                  <ProtectedRoute user={user}>
-                    <AdminOrders />
-                  </ProtectedRoute>
-                } 
-              />
-            </Routes>
-          </main>
+            <main>
+              <Routes>
+                <Route 
+                  path="/" 
+                  element={<Home addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
+                />
+                <Route 
+                  path="/products" 
+                  element={<Products addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
+                />
+                <Route 
+                  path="/product/:id" 
+                  element={<ProductDetail addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
+                />
+                <Route 
+                  path="/cart" 
+                  element={<CartPage cartItems={cartItems} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} 
+                />
+                <Route 
+                  path="/about" 
+                  element={<About />} 
+                />
+                <Route 
+                  path="/contact" 
+                  element={<Contact />} 
+                />
+                <Route 
+                  path="/checkout" 
+                  element={<Checkout cartItems={cartItems} clearCart={clearCart} />} 
+                />
+                <Route 
+                  path="/wishlist" 
+                  element={<Wishlist wishlistItems={wishlistItems} addToCart={addToCart} removeFromWishlist={removeFromWishlist} />} 
+                />
+                <Route 
+                  path="/order/:orderId" 
+                  element={<OrderTracking />} 
+                />
+                <Route 
+                  path="/login" 
+                  element={<Login />} 
+                />
+                <Route 
+                  path="/signup" 
+                  element={<SignUp />} 
+                />
+                <Route 
+                  path="/admin/login" 
+                  element={<AdminLogin />} 
+                />
+                <Route 
+                  path="/admin/orders" 
+                  element={
+                    <ProtectedRoute>
+                      <AdminOrders />
+                    </ProtectedRoute>
+                  } 
+                />
+              </Routes>
+            </main>
 
-          <Footer />
-        </div>
-      </Router>
+            <Footer />
+          </div>
+        </Router>
+      </AuthProvider>
     </HelmetProvider>
   );
 }
