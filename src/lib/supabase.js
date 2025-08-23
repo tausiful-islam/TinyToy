@@ -21,7 +21,9 @@ export const TABLES = {
   ORDERS: 'orders',
   ORDER_ITEMS: 'order_items',
   WISHLISTS: 'wishlists',
-  REVIEWS: 'reviews'
+  REVIEWS: 'reviews',
+  CUSTOMER_PROFILES: 'customer_profiles',
+  CUSTOMER_ADDRESSES: 'customer_addresses'
 }
 
 // Order status options

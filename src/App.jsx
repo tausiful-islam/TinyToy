@@ -16,6 +16,7 @@ import Wishlist from './pages/Wishlist';
 import OrderTracking from './pages/OrderTracking';
 import Login from './pages/Login';
 import SignUp from './pages/SignUp';
+import Account from './pages/Account';
 import AdminLogin from './pages/AdminLogin';
 import AdminOrders from './pages/AdminOrders';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -207,6 +208,14 @@ function App() {
                 <Route 
                   path="/signup" 
                   element={<SignUp />} 
+                />
+                <Route 
+                  path="/account" 
+                  element={
+                    <ProtectedRoute>
+                      <Account />
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/admin/login" 

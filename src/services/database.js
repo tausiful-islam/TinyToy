@@ -247,13 +247,17 @@ export const orderService = {
     try {
       // Prepare order data - support both old and new formats
       let orderData;
+      const isAuthenticated = user && user.id;
+      
       if (cartItems && Array.isArray(cartItems)) {
         // New format: orderInput is customer data, cartItems is separate
         orderData = {
           customer_name: orderInput.name || orderInput.customer_name,
           customer_email: orderInput.email || orderInput.customer_email,
           customer_phone: orderInput.phone || orderInput.customer_phone,
-          customer_id: user ? user.id : null, // Link to user if authenticated
+          user_id: isAuthenticated ? user.id : null, // Link to user if authenticated
+          customer_id: isAuthenticated ? user.id : null, // Keep for backward compatibility
+          is_guest_order: !isAuthenticated, // Track if this is a guest order
           address: orderInput.address,
           payment_method: orderInput.paymentMethod || orderInput.payment_method,
           total: orderInput.total,
@@ -267,7 +271,9 @@ export const orderService = {
           customer_name: orderInput.customer_name,
           customer_email: orderInput.customer_email,
           customer_phone: orderInput.customer_phone,
-          customer_id: user ? user.id : null, // Link to user if authenticated
+          user_id: isAuthenticated ? user.id : null, // Link to user if authenticated
+          customer_id: isAuthenticated ? user.id : null, // Keep for backward compatibility
+          is_guest_order: !isAuthenticated, // Track if this is a guest order
           address: orderInput.address,
           payment_method: orderInput.payment_method,
           total: orderInput.total,
@@ -347,10 +353,10 @@ export const orderService = {
     }
   },
 
-  // Get order by ID with variant information
-  async getOrder(orderId) {
+  // Get order by ID with variant information and user permission checks
+  async getOrder(orderId, user = null) {
     try {
-      const { data: order, error: orderError } = await supabase
+      let query = supabase
         .from(TABLES.ORDERS)
         .select(`
           *,
@@ -361,12 +367,43 @@ export const orderService = {
           )
         `)
         .eq('id', orderId)
-        .single()
+
+      // If user is provided, add permission check for non-admin users
+      if (user && !authService.isAdmin(user)) {
+        query = query.eq('user_id', user.id)
+      }
+
+      const { data: order, error: orderError } = await query.single()
 
       if (orderError) throw orderError
       return { data: order, error: null }
     } catch (error) {
       console.error('Error fetching order:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get order history for authenticated users
+  async getOrderHistory(userId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.ORDERS)
+        .select(`
+          *,
+          order_items (
+            *,
+            products (name, image, price),
+            product_variants (attributes, image, price)
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('is_guest_order', false)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error fetching order history:', error)
       return { data: null, error: error.message }
     }
   },
@@ -732,6 +769,197 @@ export const wishlistService = {
       return { data, error: null }
     } catch (error) {
       console.error('Error removing from wishlist:', error)
+      return { data: null, error: error.message }
+    }
+  }
+}
+
+// Customer Service
+export const customerService = {
+  // Get customer profile
+  async getProfile(userId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CUSTOMER_PROFILES)
+        .select('*')
+        .eq('user_id', userId)
+        .single()
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error
+      }
+
+      return { data: data || null, error: null }
+    } catch (error) {
+      console.error('Error fetching customer profile:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Update customer profile
+  async updateProfile(userId, profileData) {
+    try {
+      // Check if profile exists
+      const { data: existingProfile } = await this.getProfile(userId)
+
+      let data, error
+
+      if (existingProfile) {
+        // Update existing profile
+        const result = await supabase
+          .from(TABLES.CUSTOMER_PROFILES)
+          .update({
+            ...profileData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .select()
+          .single()
+
+        data = result.data
+        error = result.error
+      } else {
+        // Create new profile
+        const result = await supabase
+          .from(TABLES.CUSTOMER_PROFILES)
+          .insert({
+            user_id: userId,
+            ...profileData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        data = result.data
+        error = result.error
+      }
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error updating customer profile:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get customer addresses
+  async getAddresses(userId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CUSTOMER_ADDRESSES)
+        .select('*')
+        .eq('user_id', userId)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error fetching customer addresses:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Add new address
+  async addAddress(userId, addressData) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CUSTOMER_ADDRESSES)
+        .insert({
+          user_id: userId,
+          ...addressData,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // If this is set as default, unset other defaults
+      if (addressData.is_default) {
+        await this.setDefaultAddress(userId, data.id)
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error adding customer address:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Update address
+  async updateAddress(userId, addressId, addressData) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CUSTOMER_ADDRESSES)
+        .update({
+          ...addressData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', addressId)
+        .eq('user_id', userId) // Security check
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // If this is set as default, unset other defaults
+      if (addressData.is_default) {
+        await this.setDefaultAddress(userId, addressId)
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error updating customer address:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Delete address
+  async deleteAddress(userId, addressId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CUSTOMER_ADDRESSES)
+        .delete()
+        .eq('id', addressId)
+        .eq('user_id', userId) // Security check
+        .select()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error deleting customer address:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Set default address
+  async setDefaultAddress(userId, addressId) {
+    try {
+      // First, unset all defaults for this user
+      await supabase
+        .from(TABLES.CUSTOMER_ADDRESSES)
+        .update({ is_default: false })
+        .eq('user_id', userId)
+
+      // Then set the specified address as default
+      const { data, error } = await supabase
+        .from(TABLES.CUSTOMER_ADDRESSES)
+        .update({ 
+          is_default: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', addressId)
+        .eq('user_id', userId) // Security check
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error setting default address:', error)
       return { data: null, error: error.message }
     }
   }
