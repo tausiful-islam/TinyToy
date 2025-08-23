@@ -181,6 +181,11 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     );
   }
 
+  // Don't render anything if product is not loaded yet
+  if (!product) {
+    return null;
+  }
+
   const renderStars = (rating) => {
     return [...Array(5)].map((_, i) => (
       <Star
@@ -209,44 +214,44 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
   return (
     <>
       <Helmet>
-  <title>{product.name} - Its My Choicee | Premium Quality Products</title>
-        <meta name="description" content={`${product.description} - Shop ${product.name} at Its My Choicee. Premium quality, designed for your unique style.`} />
-        <meta name="keywords" content={`${product.name}, ${product.category}, fashion, home decor, Its My Choicee`} />
+        <title>{product?.name || 'Product'} - Its My Choicee | Premium Quality Products</title>
+        <meta name="description" content={`${product?.description || 'Premium quality product'} - Shop ${product?.name || 'products'} at Its My Choicee. Premium quality, designed for your unique style.`} />
+        <meta name="keywords" content={`${product?.name || 'product'}, ${product?.category || 'shopping'}, fashion, home decor, Its My Choicee`} />
         
         {/* OpenGraph Meta Tags */}
-  <meta property="og:title" content={`${product.name} - Its My Choicee`} />
-        <meta property="og:description" content={product.description} />
+        <meta property="og:title" content={`${product?.name || 'Product'} - Its My Choicee`} />
+        <meta property="og:description" content={product?.description || 'Premium quality product'} />
         <meta property="og:type" content="product" />
-        <meta property="og:url" content={`https://itsmychoicee.com/product/${product.id}`} />
-        <meta property="og:image" content={product.image} />
-        <meta property="og:price:amount" content={product.price} />
+        <meta property="og:url" content={`https://itsmychoicee.com/product/${product?.id || ''}`} />
+        <meta property="og:image" content={product?.image || ''} />
+        <meta property="og:price:amount" content={product?.price || '0'} />
         <meta property="og:price:currency" content="USD" />
         
         {/* Twitter Card Meta Tags */}
         <meta name="twitter:card" content="product" />
-  <meta name="twitter:title" content={`${product.name} - Its My Choicee`} />
-        <meta name="twitter:description" content={product.description} />
-        <meta name="twitter:image" content={product.image} />
+        <meta name="twitter:title" content={`${product?.name || 'Product'} - Its My Choicee`} />
+        <meta name="twitter:description" content={product?.description || 'Premium quality product'} />
+        <meta name="twitter:image" content={product?.image || ''} />
         
         {/* Product Schema */}
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Product",
-            "name": product.name,
-            "description": product.description,
-            "image": product.image,
+            "name": product?.name || 'Product',
+            "description": product?.description || 'Premium quality product',
+            "image": product?.image || '',
             "brand": "Its My Choicee",
-            "category": product.category,
+            "category": product?.category || 'General',
             "offers": {
               "@type": "Offer",
-              "price": product.price,
+              "price": product?.price || 0,
               "priceCurrency": "USD",
               "availability": "https://schema.org/InStock"
             },
             "aggregateRating": {
               "@type": "AggregateRating",
-              "ratingValue": product.rating,
+              "ratingValue": product?.rating || 0,
               "reviewCount": reviews.length
             }
           })}
