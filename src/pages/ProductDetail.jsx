@@ -32,10 +32,15 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     const fetchProduct = async () => {
       try {
         setLoading(true);
+        console.log('Fetching product with ID:', id);
         const { data, error } = await productService.getProductById(parseInt(id));
+        console.log('Product fetch result:', { data, error });
         if (error) throw new Error(error);
         if (data) {
           setProduct(data);
+          console.log('Product loaded successfully:', data);
+        } else {
+          console.warn('No product found with ID:', id);
         }
       } catch (err) {
         console.error('Error fetching product:', err);
@@ -153,7 +158,7 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     );
   }
 
-  if (!product) {
+  if (!product && !loading) {
     return (
       <motion.div 
         className="min-h-screen flex items-center justify-center"
@@ -164,6 +169,7 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
         <div className="text-center">
           <div className="text-6xl mb-4">🔍</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Product not found</h2>
+          <p className="text-gray-600 mb-4">Product ID: {id}</p>
           <Link
             to="/products"
             className="text-primary-500 hover:text-primary-600 font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 rounded-lg px-2 py-1"

@@ -265,11 +265,13 @@ Ensure your repository contains these essential files:
    VITE_ENVIRONMENT=production
    ```
 
-   **⚠️ Important**: 
+   **⚠️ CRITICAL - Environment Variables**: 
    - Use your actual Supabase URL and API key from Step 2.4
    - VITE_ADMIN_EMAIL must match the admin user created in Step 2.3
    - VITE_ADMIN_PASSWORD must match the password set in Step 2.3
    - Don't use spaces in environment variable values
+   
+   🚨 **If products don't load on your live site, check these environment variables first!**
 
 ### 3.3 Deploy the Application
 
