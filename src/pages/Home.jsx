@@ -6,12 +6,15 @@ import { Helmet } from 'react-helmet-async';
 import ProductCard from '../components/ProductCard';
 import HeroCarousel from '../components/HeroCarousel';
 import { ProductGridSkeleton, HeroCarouselSkeleton } from '../components/LoadingSkeleton';
-import { productService } from '../services/database.js';
+import { productService, newsletterService } from '../services/database.js';
 
 const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
+  const [newsletterStatus, setNewsletterStatus] = useState(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -36,6 +39,34 @@ const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) =>
 
     fetchProducts();
   }, []);
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+    setNewsletterSubmitting(true);
+    setNewsletterStatus(null);
+
+    try {
+      const { data, error } = await newsletterService.subscribe(newsletterEmail, null, 'homepage');
+      
+      if (error) {
+        throw new Error(error);
+      }
+
+      setNewsletterStatus({
+        type: 'success',
+        message: 'Thank you for subscribing! Check your email for confirmation.'
+      });
+      setNewsletterEmail('');
+    } catch (error) {
+      console.error('Error subscribing to newsletter:', error);
+      setNewsletterStatus({
+        type: 'error',
+        message: error.message || 'There was an error subscribing. Please try again.'
+      });
+    } finally {
+      setNewsletterSubmitting(false);
+    }
+  };
 
   return (
     <>
@@ -181,17 +212,31 @@ const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) =>
                 Be the first to know about new arrivals, exclusive offers, and style tips
               </p>
               
-              <form className="max-w-md mx-auto flex space-x-4">
+              {newsletterStatus && (
+                <div className={`max-w-md mx-auto mb-6 p-4 rounded-lg ${
+                  newsletterStatus.type === 'success' 
+                    ? 'bg-green-100 text-green-800 border border-green-200' 
+                    : 'bg-red-100 text-red-800 border border-red-200'
+                }`}>
+                  {newsletterStatus.message}
+                </div>
+              )}
+              
+              <form onSubmit={handleNewsletterSubmit} className="max-w-md mx-auto flex space-x-4">
                 <input
                   type="email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
                   placeholder="Enter your email"
                   className="flex-1 px-4 py-3 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white"
+                  required
                 />
                 <button
                   type="submit"
-                  className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+                  disabled={newsletterSubmitting}
+                  className="bg-white text-purple-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Subscribe
+                  {newsletterSubmitting ? 'Subscribing...' : 'Subscribe'}
                 </button>
               </form>
             </motion.div>

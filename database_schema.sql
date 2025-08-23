@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Create orders table
+-- Create orders table with user authentication support
 CREATE TABLE IF NOT EXISTS orders (
   id BIGSERIAL PRIMARY KEY,
   customer_name VARCHAR(255) NOT NULL,
@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total DECIMAL(10,2) NOT NULL CHECK (total >= 0),
   status VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Confirmed', 'Shipped', 'Delivered', 'Cancelled')),
   notes TEXT,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- Link to authenticated users
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
@@ -47,13 +48,75 @@ CREATE TABLE IF NOT EXISTS order_items (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- Create wishlists table (for future user accounts)
+-- Create wishlists table with dual support (guest and authenticated users)
 CREATE TABLE IF NOT EXISTS wishlists (
   id BIGSERIAL PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- For authenticated users
+  customer_email VARCHAR(255), -- For guest users
   product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  UNIQUE(user_id, product_id)
+  -- Ensure either user_id or customer_email is provided, but not both
+  CONSTRAINT wishlist_user_constraint CHECK (
+    (user_id IS NOT NULL AND customer_email IS NULL) OR 
+    (user_id IS NULL AND customer_email IS NOT NULL)
+  ),
+  -- Unique constraint for authenticated users
+  UNIQUE(user_id, product_id),
+  -- Unique constraint for guest users
+  UNIQUE(customer_email, product_id)
+);
+
+-- Customer profiles table for authenticated users
+CREATE TABLE IF NOT EXISTS customer_profiles (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name VARCHAR(255),
+  phone VARCHAR(20),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  UNIQUE(user_id)
+);
+
+-- Customer addresses table for authenticated users
+CREATE TABLE IF NOT EXISTS customer_addresses (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type VARCHAR(20) NOT NULL DEFAULT 'shipping' CHECK (type IN ('shipping', 'billing')),
+  street_address TEXT NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  state VARCHAR(100) NOT NULL,
+  postal_code VARCHAR(20) NOT NULL,
+  country VARCHAR(100) NOT NULL DEFAULT 'India',
+  is_default BOOLEAN DEFAULT false,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Newsletter subscribers table for collecting email subscribers
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id BIGSERIAL PRIMARY KEY,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255),
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'unsubscribed', 'bounced')),
+  source VARCHAR(50) DEFAULT 'website', -- Track where subscription came from
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- Link to user account if registered
+  subscribed_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  unsubscribed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- Contact form submissions table
+CREATE TABLE IF NOT EXISTS contact_submissions (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  subject VARCHAR(255),
+  message TEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'in_progress', 'resolved', 'closed')),
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- Link to user account if registered
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- Create reviews table (for future implementation)
@@ -74,9 +137,17 @@ CREATE INDEX IF NOT EXISTS idx_products_featured ON products(featured);
 CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id);
 CREATE INDEX IF NOT EXISTS idx_wishlists_user_id ON wishlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_wishlists_customer_email ON wishlists(customer_email);
+CREATE INDEX IF NOT EXISTS idx_customer_profiles_user_id ON customer_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_customer_addresses_user_id ON customer_addresses(user_id);
+CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_email ON newsletter_subscribers(email);
+CREATE INDEX IF NOT EXISTS idx_newsletter_subscribers_status ON newsletter_subscribers(status);
+CREATE INDEX IF NOT EXISTS idx_contact_submissions_status ON contact_submissions(status);
+CREATE INDEX IF NOT EXISTS idx_contact_submissions_created_at ON contact_submissions(created_at);
 CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews(product_id);
 
 -- Enable Row Level Security (RLS)
@@ -84,6 +155,10 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE wishlists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE newsletter_subscribers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contact_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for products (public read access)
@@ -107,15 +182,76 @@ CREATE POLICY "Order items are viewable by everyone" ON order_items
 CREATE POLICY "Order items can be inserted by anyone" ON order_items
   FOR INSERT WITH CHECK (true);
 
--- RLS Policies for wishlists (users can only see their own)
-CREATE POLICY "Users can view their own wishlist" ON wishlists
-  FOR SELECT USING (auth.uid() = user_id);
+-- RLS Policies for wishlists (support both authenticated and guest users)
+CREATE POLICY "Users can view their own wishlist items" ON wishlists
+  FOR SELECT USING (
+    auth.uid() = user_id OR 
+    (user_id IS NULL AND customer_email IS NOT NULL)
+  );
 
 CREATE POLICY "Users can insert into their own wishlist" ON wishlists
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK (
+    auth.uid() = user_id OR 
+    (user_id IS NULL AND customer_email IS NOT NULL)
+  );
 
 CREATE POLICY "Users can delete from their own wishlist" ON wishlists
+  FOR DELETE USING (
+    auth.uid() = user_id OR 
+    (user_id IS NULL AND customer_email IS NOT NULL)
+  );
+
+-- RLS Policies for customer profiles (users can only access their own)
+CREATE POLICY "Users can view their own profile" ON customer_profiles
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own profile" ON customer_profiles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own profile" ON customer_profiles
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own profile" ON customer_profiles
   FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for customer addresses (users can only access their own)
+CREATE POLICY "Users can view their own addresses" ON customer_addresses
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own addresses" ON customer_addresses
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own addresses" ON customer_addresses
+  FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own addresses" ON customer_addresses
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- RLS Policies for newsletter subscribers (public can subscribe, admin can manage)
+CREATE POLICY "Anyone can subscribe to newsletter" ON newsletter_subscribers
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Subscribers can view their own subscription" ON newsletter_subscribers
+  FOR SELECT USING (
+    auth.uid() = user_id OR 
+    email = current_setting('request.jwt.claims', true)::json->>'email'
+  );
+
+CREATE POLICY "Subscribers can update their own subscription" ON newsletter_subscribers
+  FOR UPDATE USING (
+    auth.uid() = user_id OR 
+    email = current_setting('request.jwt.claims', true)::json->>'email'
+  );
+
+-- RLS Policies for contact submissions (anyone can submit, admin can manage)
+CREATE POLICY "Anyone can submit contact form" ON contact_submissions
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Users can view their own submissions" ON contact_submissions
+  FOR SELECT USING (
+    auth.uid() = user_id OR 
+    email = current_setting('request.jwt.claims', true)::json->>'email'
+  );
 
 -- RLS Policies for reviews (public read, anyone can insert pending approval)
 CREATE POLICY "Reviews are viewable by everyone" ON reviews
@@ -138,6 +274,18 @@ CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_customer_profiles_updated_at BEFORE UPDATE ON customer_profiles
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_customer_addresses_updated_at BEFORE UPDATE ON customer_addresses
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_newsletter_subscribers_updated_at BEFORE UPDATE ON newsletter_subscribers
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_contact_submissions_updated_at BEFORE UPDATE ON contact_submissions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert sample products (migrate from existing data)

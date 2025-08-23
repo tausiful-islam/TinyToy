@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Search, Heart, ShoppingCart, Menu, X, User, LogOut } from 'lucide-react'
+import { Search, Heart, ShoppingCart, Menu, X, User, LogOut, Settings, Package, MapPin, Clock } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { orderService } from '../services/database'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [cartItemCount, setCartItemCount] = useState(0)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [userOrderCount, setUserOrderCount] = useState(0)
+  const [recentOrder, setRecentOrder] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
   const { user, signOut, loading } = useAuth()
@@ -31,6 +34,32 @@ export default function Header() {
       window.removeEventListener('cartUpdated', updateCartCount)
     }
   }, [])
+
+  // Load user order data when user is available
+  useEffect(() => {
+    const loadUserOrderData = async () => {
+      if (!user?.id) {
+        setUserOrderCount(0)
+        setRecentOrder(null)
+        return
+      }
+
+      try {
+        const { data: orders } = await orderService.getOrderHistory(user.id)
+        if (orders) {
+          setUserOrderCount(orders.length)
+          // Get the most recent order
+          if (orders.length > 0) {
+            setRecentOrder(orders[0])
+          }
+        }
+      } catch (error) {
+        console.error('Error loading user orders:', error)
+      }
+    }
+
+    loadUserOrderData()
+  }, [user?.id])
 
   const handleLogout = async () => {
     try {
@@ -164,25 +193,90 @@ export default function Header() {
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                      <div className="px-4 py-2 border-b border-gray-200">
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                      {/* User Info Header */}
+                      <div className="px-4 py-3 border-b border-gray-200">
                         <p className="text-sm font-medium text-gray-900">
                           {user.email}
                         </p>
+                        {userOrderCount > 0 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {userOrderCount} order{userOrderCount !== 1 ? 's' : ''} placed
+                          </p>
+                        )}
                       </div>
-                      <Link
-                        to="/account"
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
-                        onClick={() => setUserMenuOpen(false)}
-                      >
-                        <User className="w-4 h-4 mr-2" />
-                        My Account
-                      </Link>
+
+                      {/* Recent Order Info */}
+                      {recentOrder && (
+                        <div className="px-4 py-2 border-b border-gray-200 bg-purple-50">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs font-medium text-purple-900">Recent Order</p>
+                              <p className="text-xs text-purple-700">#{recentOrder.id}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-medium text-purple-900">
+                                ৳{recentOrder.total?.toLocaleString()}
+                              </p>
+                              <p className="text-xs text-purple-600">{recentOrder.status}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Account Management Options */}
+                      <div className="py-1">
+                        <Link
+                          to="/account"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <User className="w-4 h-4 mr-3" />
+                          My Account
+                        </Link>
+
+                        <Link
+                          to="/account?tab=orders"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Package className="w-4 h-4 mr-3" />
+                          My Orders
+                          {userOrderCount > 0 && (
+                            <span className="ml-auto bg-purple-100 text-purple-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                              {userOrderCount}
+                            </span>
+                          )}
+                        </Link>
+
+                        <Link
+                          to="/account?tab=addresses"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <MapPin className="w-4 h-4 mr-3" />
+                          Saved Addresses
+                        </Link>
+
+                        <Link
+                          to="/account?tab=settings"
+                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Settings className="w-4 h-4 mr-3" />
+                          Account Settings
+                        </Link>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="border-t border-gray-200 my-1"></div>
+
+                      {/* Sign Out */}
                       <button
                         onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center transition-colors"
                       >
-                        <LogOut className="w-4 h-4 mr-2" />
+                        <LogOut className="w-4 h-4 mr-3" />
                         Sign Out
                       </button>
                     </div>

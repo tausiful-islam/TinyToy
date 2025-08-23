@@ -23,7 +23,9 @@ export const TABLES = {
   WISHLISTS: 'wishlists',
   REVIEWS: 'reviews',
   CUSTOMER_PROFILES: 'customer_profiles',
-  CUSTOMER_ADDRESSES: 'customer_addresses'
+  CUSTOMER_ADDRESSES: 'customer_addresses',
+  NEWSLETTER_SUBSCRIBERS: 'newsletter_subscribers',
+  CONTACT_SUBMISSIONS: 'contact_submissions'
 }
 
 // Order status options

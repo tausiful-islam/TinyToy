@@ -2,7 +2,28 @@
 
 ## 📋 Overview
 
-JoyfulFinds is a modern, full-stack e-commerce platform built with React 18, Vite, TailwindCSS, and Supabase. This document outlines all features available in the application.
+JoyfulFinds is a modern, full-stack e-commerce platform built with React 18, Vite, TailwindCSS, and Supabase. This document outlin### **6. Wishlist### **7. Row Level Security (RLS)**
+- **Public Access**: Products table readable by everyone
+- **Order Security**: Orders accessible by ### **2. Customer Features**
+- **User Accounts**: Customer registration and login system
+- **Account Dashboard**: Personal account management interface
+- **Order History**: Complete order history for authenticated customers
+- **Address Management**: Multiple shipping addresses support
+- **Profile Management**: Update personal information and preferences
+- **Wishlist Integration**: Persistent wishlist for authenticated users
+- **Session Management**: Secure login/logout functionality and order owners
+- **Customer Data Protection**: Customer profiles and addresses secured by user authentication
+- **Wishlist Security**: Wishlist items accessible by owner only
+- **Admin Only**: Admin operations require authenticationle**
+```sql
+- id (Primary Key)
+- customer_email (Customer identifier - for guest users)
+- user_id (Foreign Key to auth.users - for authenticated users)
+- product_id (Foreign Key to products)
+- created_at (Addition timestamp)
+```
+
+### **7. Row Level Security (RLS)**atures available in the application.
 
 ---
 
@@ -96,8 +117,9 @@ JoyfulFinds is a modern, full-stack e-commerce platform built with React 18, Vit
 
 ### **2. Order Management (`/admin/orders`)**
 - **Order Dashboard**: Complete overview of all orders
-- **Order List**: Paginated list of all orders
-- **Order Details**: Detailed view of each order
+- **Tab Navigation**: Switch between Orders Management and Customer Analytics
+- **Order List**: Paginated list of all orders with summary cards
+- **Order Details**: Detailed view of each order with customer information
 - **Status Updates**: Change order status in real-time
 - **Search & Filter**: Find orders by customer, date, status
 - **Order Actions**:
@@ -106,13 +128,38 @@ JoyfulFinds is a modern, full-stack e-commerce platform built with React 18, Vit
   - Mark as delivered
   - Mark as cancelled
 - **Real-time Updates**: Live data from Supabase
+- **Analytics Cards**: Total orders, completed orders, pending orders, revenue
 - **Export Options**: Download order data (future feature)
 
-### **3. Customer Management**
-- **Customer List**: View all customers
-- **Order History**: Customer's complete order history
-- **Customer Details**: Contact and shipping information
-- **Customer Analytics**: Order patterns and preferences
+### **3. Customer Analytics (`/admin/orders` - Customer Tab)**
+- **Customer Analytics Dashboard**: Comprehensive customer insights
+- **Analytics Cards**:
+  - Total registered customers
+  - Total revenue from all customers
+  - Average order value calculation
+  - Total orders across platform
+- **Customer Search**: Search customers by name or email
+- **Customer Table**: Complete customer information display
+- **Customer Metrics**:
+  - Individual customer order history
+  - Total amount spent per customer
+  - Last order date tracking
+  - Customer status classification (New, Regular, VIP)
+- **Customer Classification System**:
+  - VIP Customer: 5+ orders (green badge)
+  - Regular Customer: 2-4 orders (yellow badge)
+  - New Customer: 1 order (gray badge)
+- **Guest Customer Support**: Analytics include both registered and guest customers
+- **Real-time Data**: Live customer analytics from order data
+
+### **4. User Authentication System**
+- **Customer Account Management**: Complete user registration and login
+- **Account Dashboard**: Personal account management interface
+- **Profile Management**: Update personal information and preferences
+- **Order History**: View complete order history with status tracking
+- **Address Management**: Multiple shipping addresses support
+- **Wishlist Integration**: Authenticated user wishlist synchronization
+- **Session Management**: Secure login/logout functionality
 
 ---
 
@@ -142,6 +189,7 @@ JoyfulFinds is a modern, full-stack e-commerce platform built with React 18, Vit
 - payment_method (COD/Bank Transfer)
 - status (Order status)
 - total_amount (Total order value)
+- user_id (Foreign Key to authenticated users - nullable)
 - created_at (Order date)
 - updated_at (Last status update)
 ```
@@ -156,7 +204,32 @@ JoyfulFinds is a modern, full-stack e-commerce platform built with React 18, Vit
 - created_at (Creation timestamp)
 ```
 
-### **4. Wishlists Table**
+### **4. Customer Profiles Table**
+```sql
+- id (Primary Key)
+- user_id (Foreign Key to auth.users)
+- full_name (Customer full name)
+- phone (Customer phone number)
+- created_at (Profile creation timestamp)
+- updated_at (Last profile update)
+```
+
+### **5. Customer Addresses Table**
+```sql
+- id (Primary Key)
+- user_id (Foreign Key to auth.users)
+- type (Address type: shipping, billing)
+- street_address (Street address)
+- city (City)
+- state (State/Province)
+- postal_code (Postal/ZIP code)
+- country (Country)
+- is_default (Default address flag)
+- created_at (Address creation timestamp)
+- updated_at (Last address update)
+```
+
+### **6. Wishlists Table**
 ```sql
 - id (Primary Key)
 - customer_email (Customer identifier)

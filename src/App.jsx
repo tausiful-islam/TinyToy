@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext';
 import Header from './components/Header';
@@ -217,9 +217,23 @@ function App() {
                     </ProtectedRoute>
                   } 
                 />
+                
+                {/* Admin Routes */}
+                <Route 
+                  path="/admin" 
+                  element={<Navigate to="/admin/login" replace />} 
+                />
                 <Route 
                   path="/admin/login" 
                   element={<AdminLogin />} 
+                />
+                <Route 
+                  path="/admin/dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <AdminOrders />
+                    </ProtectedRoute>
+                  } 
                 />
                 <Route 
                   path="/admin/orders" 

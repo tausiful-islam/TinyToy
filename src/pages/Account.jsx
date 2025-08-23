@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { customerService, orderService } from '../services/database'
 import { 
@@ -18,7 +19,8 @@ import {
 
 const Account = () => {
   const { user, updateProfile } = useAuth()
-  const [activeTab, setActiveTab] = useState('profile')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'profile')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -64,6 +66,20 @@ const Account = () => {
       loadUserData()
     }
   }, [user])
+
+  // Handle URL tab parameter changes
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab && ['profile', 'orders', 'addresses', 'settings'].includes(tab)) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  // Update URL when tab changes
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    setSearchParams({ tab: tabId })
+  }
 
   const loadUserData = async () => {
     setLoading(true)
@@ -292,7 +308,7 @@ const Account = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabChange(tab.id)}
                     className={`${
                       activeTab === tab.id
                         ? 'bg-indigo-50 border-indigo-500 text-indigo-700'

@@ -29,23 +29,34 @@ A modern, full-stack e-commerce application with **product variants system** bui
 - 💳 **Multiple Payment Methods** (Cash on Delivery, Bank Transfer)
 - 🎫 **Promo Code Support** (frontend ready)
 - ⚡ **Real-time Stock Validation**
+- 👤 **User Account System** with registration and login
+- 📋 **Account Dashboard** with profile and order management
+- 📍 **Address Management** with multiple shipping addresses
+- 📈 **Order History** with complete tracking and status updates
 
 ### Admin Features
-- 🔐 **Enhanced Admin Authentication**
-- 📊 **Variant-Aware Order Management**
-- ✅ **Order Status Updates** with variant context
-- 🔍 **Advanced Search and Filtering**
-- 📈 **Real-time Dashboard** with variant insights
-- 🏷️ **Future: Variant Management Panel**
+- 🔐 **Enhanced Admin Authentication** with secure session management
+- 📊 **Advanced Order Management** with tab-based interface
+- 📈 **Customer Analytics Dashboard** with comprehensive insights
+- ✅ **Order Status Updates** with real-time tracking
+- 🔍 **Advanced Search and Filtering** for orders and customers
+- 📈 **Real-time Dashboard** with business intelligence
+- 👥 **Customer Management** with detailed customer analytics
+- 🏷️ **Customer Classification System** (New, Regular, VIP customers)
+- 💰 **Revenue Analytics** with average order value calculations
+- 📊 **Business Metrics** with total customers and order analytics
 
 ### Technical Features
-- 🗄️ **Enhanced Supabase Backend** with variants support
+- 🗄️ **Enhanced Supabase Backend** with customer authentication
 - 🔒 **Row Level Security** (RLS) for all tables
+- 👥 **Customer Management System** with profiles and addresses
 - ✅ **Zod Validation** for type-safe forms
 - 🌐 **SEO Optimized** with React Helmet
 - 🎨 **Smooth Animations** with Framer Motion
 - 📦 **Optimized Build System** with Vite
 - 🎯 **TypeScript Ready** with JSDoc support
+- 🔐 **Authentication Context** with session management
+- 📊 **Customer Analytics** with business intelligence features
 
 ## 🚀 Quick Start
 
@@ -155,11 +166,14 @@ its-my-choicee-store/
 │   ├── pages/
 │   │   ├── ProductDetail.jsx    # Enhanced with variant support
 │   │   ├── Cart.jsx             # Updated cart with variants
-│   │   └── Admin/               # Complete admin panel
+│   │   ├── Account.jsx          # Customer account management
+│   │   └── Admin/               # Complete admin panel with analytics
 │   ├── services/
-│   │   └── database.js          # Enhanced with variant operations
+│   │   └── database.js          # Enhanced with customer management
 │   ├── lib/
 │   │   └── validation.js        # Zod validation schemas
+│   ├── context/
+│   │   └── AuthContext.jsx      # Authentication context provider
 │   └── utils/                   # Helper functions
 ├── database_schema.sql          # Enhanced schema with variants
 └── documentation/               # Complete project docs
@@ -194,7 +208,9 @@ The application uses the following Supabase tables:
 - **products** - Product catalog
 - **orders** - Customer orders
 - **order_items** - Individual items in orders
-- **wishlists** - Customer wishlists
+- **customer_profiles** - Customer profile information
+- **customer_addresses** - Customer shipping addresses
+- **wishlists** - Customer wishlists (supports both guest and authenticated users)
 - **reviews** - Product reviews (localStorage for now)
 
 See `database_schema.sql` for complete schema with RLS policies.
@@ -263,9 +279,15 @@ For detailed deployment instructions, see `DEPLOYMENT_GUIDE.md`.
 ### Manual Testing Checklist
 - [ ] Product variant selection works correctly
 - [ ] Cart updates with proper variant information
-- [ ] Checkout process completes successfully
-- [ ] Admin panel functions properly
-- [ ] Search and filtering work as expected
+- [ ] Customer authentication (register/login) functions properly
+- [ ] Account dashboard displays profile and order information
+- [ ] Address management allows adding/editing shipping addresses
+- [ ] Wishlist synchronization works for authenticated users
+- [ ] Checkout process completes successfully with user linking
+- [ ] Admin panel customer analytics display correctly
+- [ ] Admin panel tab navigation (Orders/Customers) works
+- [ ] Customer classification (New/Regular/VIP) displays properly
+- [ ] Search and filtering work as expected across all interfaces
 - [ ] Responsive design on all devices
 
 ### Automated Testing (Future Enhancement)

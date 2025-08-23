@@ -1,27 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Search, Filter, Edit, Eye, Calendar, User, CreditCard, Truck, Check, Clock, X } from 'lucide-react';
+import { Package, Search, Filter, Edit, Eye, Calendar, User, CreditCard, Truck, Check, Clock, X, Users, TrendingUp, ShoppingBag, DollarSign } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
-import { orderService, authService } from '../services/database.js';
+import { orderService, authService, customerService } from '../services/database.js';
 import { ORDER_STATUS } from '../lib/supabase.js';
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);
   const [filteredOrders, setFilteredOrders] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [customersLoading, setCustomersLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updating, setUpdating] = useState(false);
+  const [activeTab, setActiveTab] = useState('orders');
+  const [customerAnalytics, setCustomerAnalytics] = useState({
+    totalCustomers: 0,
+    totalRevenue: 0,
+    averageOrderValue: 0,
+    topCustomers: []
+  });
 
   useEffect(() => {
     fetchOrders();
+    fetchCustomerData();
   }, []);
 
   useEffect(() => {
     filterOrders();
   }, [orders, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    filterCustomers();
+  }, [customers, customerSearchTerm]);
 
   const fetchOrders = async () => {
     try {
@@ -35,6 +51,72 @@ const AdminOrders = () => {
       setError(err.message || 'Failed to fetch orders');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCustomerData = async () => {
+    try {
+      setCustomersLoading(true);
+      
+      // Get all orders to build customer analytics
+      const { data: ordersData } = await orderService.getAllOrders();
+      
+      if (ordersData) {
+        // Build customer analytics from orders
+        const customerMap = new Map();
+        let totalRevenue = 0;
+        
+        ordersData.forEach(order => {
+          if (!order.is_guest_order && order.user_id) {
+            const customerId = order.user_id;
+            const customerEmail = order.customer_email;
+            const customerName = order.customer_name;
+            
+            if (!customerMap.has(customerId)) {
+              customerMap.set(customerId, {
+                id: customerId,
+                email: customerEmail,
+                name: customerName,
+                totalOrders: 0,
+                totalSpent: 0,
+                orders: [],
+                lastOrderDate: null
+              });
+            }
+            
+            const customer = customerMap.get(customerId);
+            customer.totalOrders++;
+            customer.totalSpent += order.total || 0;
+            customer.orders.push(order);
+            
+            if (!customer.lastOrderDate || new Date(order.created_at) > new Date(customer.lastOrderDate)) {
+              customer.lastOrderDate = order.created_at;
+            }
+          }
+          
+          totalRevenue += order.total || 0;
+        });
+        
+        const customersList = Array.from(customerMap.values());
+        const totalCustomers = customersList.length;
+        const averageOrderValue = ordersData.length > 0 ? totalRevenue / ordersData.length : 0;
+        const topCustomers = customersList
+          .sort((a, b) => b.totalSpent - a.totalSpent)
+          .slice(0, 10);
+        
+        setCustomers(customersList);
+        setCustomerAnalytics({
+          totalCustomers,
+          totalRevenue,
+          averageOrderValue,
+          topCustomers
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching customer data:', err);
+      setError(err.message || 'Failed to fetch customer data');
+    } finally {
+      setCustomersLoading(false);
     }
   };
 
@@ -56,6 +138,20 @@ const AdminOrders = () => {
     }
 
     setFilteredOrders(filtered);
+  };
+
+  const filterCustomers = () => {
+    let filtered = customers;
+
+    // Filter by search term
+    if (customerSearchTerm) {
+      filtered = filtered.filter(customer => 
+        customer.name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+        customer.email.toLowerCase().includes(customerSearchTerm.toLowerCase())
+      );
+    }
+
+    setFilteredCustomers(filtered);
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -239,7 +335,7 @@ const AdminOrders = () => {
   return (
     <>
       <Helmet>
-  <title>Admin Orders - Its My Choicee</title>
+        <title>Admin Dashboard - Its My Choicee</title>
         <meta name="description" content="Manage customer orders and track order status" />
       </Helmet>
       <motion.div 
@@ -253,16 +349,133 @@ const AdminOrders = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
+            className="mb-8"
           >
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Orders Management</h1>
-                <p className="text-gray-600 mt-2">Manage customer orders and update status</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
+            <p className="text-gray-600">Manage orders and customer analytics</p>
+          </motion.div>
+
+          {/* Tab Navigation */}
+          <div className="mb-8">
+            <nav className="flex space-x-8" aria-label="Tabs">
+              <button
+                onClick={() => setActiveTab('orders')}
+                className={`${
+                  activeTab === 'orders'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
+              >
+                <Package className="w-4 h-4 mr-2" />
+                Orders Management
+              </button>
+              <button
+                onClick={() => setActiveTab('customers')}
+                className={`${
+                  activeTab === 'customers'
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center`}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Customer Analytics
+              </button>
+            </nav>
+          </div>
+
+          {/* Orders Tab */}
+          {activeTab === 'orders' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-blue-100 rounded-md">
+                      <Package className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                      <p className="text-2xl font-semibold text-gray-900">{orders.length}</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-green-100 rounded-md">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Completed</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {orders.filter(order => order.status === 'delivered').length}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.3 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-yellow-100 rounded-md">
+                      <Clock className="h-6 w-6 text-yellow-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Pending</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {orders.filter(order => ['pending', 'processing', 'shipped'].includes(order.status)).length}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.4 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 rounded-md">
+                      <DollarSign className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        ₹{orders.reduce((sum, order) => sum + order.total, 0).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
               </div>
-              <div className="text-sm text-gray-500">
-                Total Orders: {orders.length}
+
+              <div className="flex justify-between items-center mb-8">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Orders Management</h2>
+                  <p className="text-gray-600 mt-2">Manage customer orders and update status</p>
+                </div>
+                <div className="text-sm text-gray-500">
+                  Total Orders: {orders.length}
+                </div>
               </div>
-            </div>
 
             {/* Filters */}
             <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
@@ -399,6 +612,201 @@ const AdminOrders = () => {
               )}
             </div>
           </motion.div>
+          )}
+
+          {/* Customers Tab */}
+          {activeTab === 'customers' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Customer Analytics Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-blue-100 rounded-md">
+                      <Users className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Customers</p>
+                      <p className="text-2xl font-semibold text-gray-900">{customerAnalytics.totalCustomers}</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.2 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-green-100 rounded-md">
+                      <DollarSign className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                      <p className="text-2xl font-semibold text-gray-900">₹{customerAnalytics.totalRevenue.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.3 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 rounded-md">
+                      <ShoppingBag className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Average Order Value</p>
+                      <p className="text-2xl font-semibold text-gray-900">₹{customerAnalytics.averageOrderValue.toFixed(0)}</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  className="bg-white rounded-lg shadow p-6"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.4 }}
+                >
+                  <div className="flex items-center">
+                    <div className="p-2 bg-orange-100 rounded-md">
+                      <TrendingUp className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                      <p className="text-2xl font-semibold text-gray-900">{customerAnalytics.totalOrders}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Customer Search */}
+              <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <input
+                    type="text"
+                    placeholder="Search customers by name or email..."
+                    value={customerSearchTerm}
+                    onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Top Customers Table */}
+              <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">Customer Analytics</h3>
+                  <p className="text-sm text-gray-600">View customer order history and spending</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Customer
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total Orders
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Total Spent
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Last Order
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredCustomers.map((customer, index) => (
+                        <motion.tr
+                          key={customer.email || index}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.05 }}
+                          className="hover:bg-gray-50"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                  <span className="text-sm font-medium text-purple-600">
+                                    {customer.name ? customer.name.charAt(0).toUpperCase() : 'G'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {customer.name || 'Guest Customer'}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  Customer ID: {customer.email ? customer.email.split('@')[0] : `guest-${index}`}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {customer.email || 'No email provided'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {customer.totalOrders}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            ₹{customer.totalSpent.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {customer.lastOrderDate ? new Date(customer.lastOrderDate).toLocaleDateString() : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              customer.totalOrders >= 5 
+                                ? 'bg-green-100 text-green-800' 
+                                : customer.totalOrders >= 2 
+                                ? 'bg-yellow-100 text-yellow-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {customer.totalOrders >= 5 ? 'VIP Customer' : customer.totalOrders >= 2 ? 'Regular' : 'New Customer'}
+                            </span>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredCustomers.length === 0 && (
+                  <div className="text-center py-12">
+                    <Users className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No customers found</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {customerSearchTerm 
+                        ? 'Try adjusting your search criteria.' 
+                        : 'No customer data available yet.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Order Modal */}

@@ -721,8 +721,13 @@ export const authService = {
 
 // Wishlist Service
 export const wishlistService = {
-  // Get user wishlist
-  async getWishlist(userId) {
+  // Get user wishlist (supports both authenticated and guest users)
+  async getWishlist(userId = null) {
+    if (!userId) {
+      // Return localStorage wishlist for guest users
+      return this.getLocalWishlist()
+    }
+
     try {
       const { data, error } = await supabase
         .from(TABLES.WISHLISTS)
@@ -740,9 +745,26 @@ export const wishlistService = {
     }
   },
 
-  // Add to wishlist
-  async addToWishlist(userId, productId) {
+  // Add to wishlist (supports both authenticated and guest users)
+  async addToWishlist(userId = null, productId, productData = null) {
+    if (!userId) {
+      // Add to localStorage for guest users
+      return this.addToLocalWishlist(productId, productData)
+    }
+
     try {
+      // Check if item already exists in database
+      const { data: existing } = await supabase
+        .from(TABLES.WISHLISTS)
+        .select('id')
+        .eq('user_id', userId)
+        .eq('product_id', productId)
+        .single()
+
+      if (existing) {
+        return { data: existing, error: null } // Already in wishlist
+      }
+
       const { data, error } = await supabase
         .from(TABLES.WISHLISTS)
         .insert({ user_id: userId, product_id: productId })
@@ -756,8 +778,13 @@ export const wishlistService = {
     }
   },
 
-  // Remove from wishlist
-  async removeFromWishlist(userId, productId) {
+  // Remove from wishlist (supports both authenticated and guest users)
+  async removeFromWishlist(userId = null, productId) {
+    if (!userId) {
+      // Remove from localStorage for guest users
+      return this.removeFromLocalWishlist(productId)
+    }
+
     try {
       const { data, error } = await supabase
         .from(TABLES.WISHLISTS)
@@ -769,6 +796,198 @@ export const wishlistService = {
       return { data, error: null }
     } catch (error) {
       console.error('Error removing from wishlist:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Check if item is in wishlist (supports both authenticated and guest users)
+  async isInWishlist(userId = null, productId) {
+    if (!userId) {
+      // Check localStorage for guest users
+      const localWishlist = this.getLocalWishlistIds()
+      return localWishlist.includes(productId.toString())
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.WISHLISTS)
+        .select('id')
+        .eq('user_id', userId)
+        .eq('product_id', productId)
+        .single()
+
+      if (error && error.code !== 'PGRST116') {
+        throw error
+      }
+
+      return !!data
+    } catch (error) {
+      console.error('Error checking wishlist item:', error)
+      return false
+    }
+  },
+
+  // Sync localStorage wishlist to database when user logs in
+  async syncLocalWishlistToDatabase(userId) {
+    try {
+      const localWishlist = this.getLocalWishlistData()
+      if (!localWishlist || localWishlist.length === 0) {
+        return { data: [], error: null }
+      }
+
+      // Get existing database wishlist to avoid duplicates
+      const { data: existingWishlist } = await this.getWishlist(userId)
+      const existingProductIds = new Set(
+        existingWishlist?.map(item => item.product_id.toString()) || []
+      )
+
+      // Filter out items that already exist in database
+      const itemsToSync = localWishlist.filter(
+        item => !existingProductIds.has(item.id.toString())
+      )
+
+      if (itemsToSync.length === 0) {
+        // Clear localStorage since everything is already in database
+        this.clearLocalWishlist()
+        return { data: [], error: null }
+      }
+
+      // Insert new items into database
+      const insertData = itemsToSync.map(item => ({
+        user_id: userId,
+        product_id: item.id
+      }))
+
+      const { data, error } = await supabase
+        .from(TABLES.WISHLISTS)
+        .insert(insertData)
+        .select()
+
+      if (error) throw error
+
+      // Clear localStorage after successful sync
+      this.clearLocalWishlist()
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error syncing wishlist:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Clear entire wishlist (supports both authenticated and guest users)
+  async clearWishlist(userId = null) {
+    if (!userId) {
+      // Clear localStorage for guest users
+      return this.clearLocalWishlist()
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.WISHLISTS)
+        .delete()
+        .eq('user_id', userId)
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error clearing wishlist:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // === Local Storage Methods for Guest Users ===
+
+  // Get wishlist from localStorage
+  getLocalWishlist() {
+    try {
+      const wishlist = localStorage.getItem('itsmychoicee_wishlist')
+      const data = wishlist ? JSON.parse(wishlist) : []
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error reading local wishlist:', error)
+      return { data: [], error: error.message }
+    }
+  },
+
+  // Get wishlist data from localStorage
+  getLocalWishlistData() {
+    try {
+      const wishlist = localStorage.getItem('itsmychoicee_wishlist')
+      return wishlist ? JSON.parse(wishlist) : []
+    } catch (error) {
+      console.error('Error reading local wishlist data:', error)
+      return []
+    }
+  },
+
+  // Get just the product IDs from localStorage wishlist
+  getLocalWishlistIds() {
+    try {
+      const wishlist = this.getLocalWishlistData()
+      return wishlist.map(item => item.id.toString())
+    } catch (error) {
+      console.error('Error getting local wishlist IDs:', error)
+      return []
+    }
+  },
+
+  // Add item to localStorage wishlist
+  addToLocalWishlist(productId, productData) {
+    try {
+      const currentWishlist = this.getLocalWishlistData()
+      const existingItem = currentWishlist.find(item => item.id.toString() === productId.toString())
+      
+      if (existingItem) {
+        return { data: existingItem, error: null } // Already in wishlist
+      }
+
+      const newItem = productData || { id: productId }
+      const updatedWishlist = [...currentWishlist, newItem]
+      
+      localStorage.setItem('itsmychoicee_wishlist', JSON.stringify(updatedWishlist))
+      
+      // Dispatch event for wishlist updates
+      window.dispatchEvent(new Event('wishlistUpdated'))
+      
+      return { data: newItem, error: null }
+    } catch (error) {
+      console.error('Error adding to local wishlist:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Remove item from localStorage wishlist
+  removeFromLocalWishlist(productId) {
+    try {
+      const currentWishlist = this.getLocalWishlistData()
+      const updatedWishlist = currentWishlist.filter(
+        item => item.id.toString() !== productId.toString()
+      )
+      
+      localStorage.setItem('itsmychoicee_wishlist', JSON.stringify(updatedWishlist))
+      
+      // Dispatch event for wishlist updates
+      window.dispatchEvent(new Event('wishlistUpdated'))
+      
+      return { data: updatedWishlist, error: null }
+    } catch (error) {
+      console.error('Error removing from local wishlist:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Clear localStorage wishlist
+  clearLocalWishlist() {
+    try {
+      localStorage.removeItem('itsmychoicee_wishlist')
+      
+      // Dispatch event for wishlist updates
+      window.dispatchEvent(new Event('wishlistUpdated'))
+      
+      return { data: [], error: null }
+    } catch (error) {
+      console.error('Error clearing local wishlist:', error)
       return { data: null, error: error.message }
     }
   }
@@ -960,6 +1179,181 @@ export const customerService = {
       return { data, error: null }
     } catch (error) {
       console.error('Error setting default address:', error)
+      return { data: null, error: error.message }
+    }
+  }
+}
+
+// Newsletter Service
+export const newsletterService = {
+  // Subscribe to newsletter
+  async subscribe(email, name = null, source = 'website') {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.NEWSLETTER_SUBSCRIBERS)
+        .insert([{
+          email: email.toLowerCase().trim(),
+          name: name?.trim(),
+          source,
+          status: 'active',
+          subscribed_at: new Date().toISOString()
+        }])
+        .select()
+        .single()
+
+      if (error) {
+        // Handle duplicate email
+        if (error.code === '23505') {
+          return { data: null, error: 'Email already subscribed to newsletter' }
+        }
+        throw error
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error subscribing to newsletter:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Unsubscribe from newsletter
+  async unsubscribe(email) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.NEWSLETTER_SUBSCRIBERS)
+        .update({ 
+          status: 'unsubscribed',
+          unsubscribed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('email', email.toLowerCase().trim())
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error unsubscribing from newsletter:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get newsletter subscriber by email
+  async getSubscriber(email) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.NEWSLETTER_SUBSCRIBERS)
+        .select('*')
+        .eq('email', email.toLowerCase().trim())
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return { data: null, error: null } // No subscriber found
+        }
+        throw error
+      }
+
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error getting newsletter subscriber:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get all active subscribers (admin only)
+  async getAllSubscribers() {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.NEWSLETTER_SUBSCRIBERS)
+        .select('*')
+        .eq('status', 'active')
+        .order('subscribed_at', { ascending: false })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error getting newsletter subscribers:', error)
+      return { data: null, error: error.message }
+    }
+  }
+}
+
+// Contact Form Service
+export const contactService = {
+  // Submit contact form
+  async submitContactForm(formData) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CONTACT_SUBMISSIONS)
+        .insert([{
+          name: formData.name.trim(),
+          email: formData.email.toLowerCase().trim(),
+          subject: formData.subject?.trim(),
+          message: formData.message.trim(),
+          status: 'new'
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error submitting contact form:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get contact submissions for user
+  async getUserSubmissions(email) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CONTACT_SUBMISSIONS)
+        .select('*')
+        .eq('email', email.toLowerCase().trim())
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error getting user contact submissions:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get all contact submissions (admin only)
+  async getAllSubmissions() {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CONTACT_SUBMISSIONS)
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error getting all contact submissions:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Update submission status (admin only)
+  async updateSubmissionStatus(submissionId, status) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CONTACT_SUBMISSIONS)
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', submissionId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error updating submission status:', error)
       return { data: null, error: error.message }
     }
   }
