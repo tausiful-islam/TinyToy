@@ -13,7 +13,9 @@ export const products = [
     description: "A cuddly teddy bear that radiates positive energy and brings smiles to anyone's day.",
     longDescription: "This adorable Sunshine Positivity Bear is more than just a toy—it's a daily reminder to stay positive and embrace joy. Made with premium soft materials and featuring an embroidered smile that never fades.",
     rating: 4.8,
-    reviewCount: 127
+    reviewCount: 127,
+    stock: 25,
+    featured: true
   },
   {
     id: 2,
@@ -29,7 +31,9 @@ export const products = [
     description: "Beautiful clear quartz pyramid that enhances meditation and brings positive energy.",
     longDescription: "Transform your living space with this stunning clear quartz crystal pyramid. Hand-selected for its clarity and positive energy properties, this pyramid serves as both a beautiful decorative piece and a powerful meditation tool.",
     rating: 4.9,
-    reviewCount: 89
+    reviewCount: 89,
+    stock: 15,
+    featured: true
   },
   {
     id: 3,
@@ -45,7 +49,9 @@ export const products = [
     description: "Colorful stress ball with a permanent smile that helps squeeze away stress.",
     longDescription: "Meet your new stress-busting companion! This vibrant rainbow stress ball features a cheerful smile that reminds you to find joy even in challenging moments.",
     rating: 4.7,
-    reviewCount: 203
+    reviewCount: 203,
+    stock: 45,
+    featured: true
   },
   {
     id: 4,
@@ -61,7 +67,9 @@ export const products = [
     description: "Charming ceramic planter with inspirational quotes that brings life to your home.",
     longDescription: "Brighten your space with this beautiful ceramic planter featuring hand-painted inspirational quotes. Perfect for small plants, succulents, or herbs.",
     rating: 4.6,
-    reviewCount: 156
+    reviewCount: 156,
+    stock: 46,
+    featured: true
   },
   {
     id: 5,
@@ -77,7 +85,9 @@ export const products = [
     description: "Beautiful journal set with prompts for daily gratitude practice.",
     longDescription: "Start each day with intention using this beautifully designed gratitude journal set. Includes guided prompts and colorful pens for a complete mindfulness experience.",
     rating: 4.9,
-    reviewCount: 312
+    reviewCount: 312,
+    stock: 36,
+    featured: true
   },
   {
     id: 6,
@@ -93,7 +103,9 @@ export const products = [
     description: "Miniature zen garden with rake and stones for mindful moments.",
     longDescription: "Create a peaceful oasis at your workspace with this elegant desktop zen garden. Complete with fine sand, stones, and a wooden rake for meditative breaks.",
     rating: 4.8,
-    reviewCount: 98
+    reviewCount: 98,
+    stock: 11,
+    featured: true
   },
   {
     id: 7,
@@ -109,7 +121,9 @@ export const products = [
     description: "Color-changing mug that reveals positive messages with hot beverages.",
     longDescription: "Start your morning with magic! This special mug reveals uplifting messages and cheerful illustrations when you pour in hot coffee or tea.",
     rating: 4.7,
-    reviewCount: 245
+    reviewCount: 245,
+    stock: 37,
+    featured: false
   },
   {
     id: 8,
@@ -125,7 +139,9 @@ export const products = [
     description: "Complete kit with mini succulents, pots, and care instructions.",
     longDescription: "Bring the joy of gardening into any space with this delightful succulent kit. Includes three mini succulents, decorative pots, and soil - perfect for beginners!",
     rating: 4.8,
-    reviewCount: 178
+    reviewCount: 178,
+    stock: 49,
+    featured: false
   }
 ];
 

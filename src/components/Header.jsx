@@ -4,10 +4,9 @@ import { Search, Heart, ShoppingCart, Menu, X, User, LogOut, Settings, Package, 
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { orderService } from '../services/database.js'
 
-export default function Header() {
+export default function Header({ cartItems = [], toggleCart }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [cartItemCount, setCartItemCount] = useState(0)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [userOrderCount, setUserOrderCount] = useState(0)
   const [recentOrder, setRecentOrder] = useState(null)
@@ -15,25 +14,8 @@ export default function Header() {
   const location = useLocation()
   const { user, signOut, loading } = useAuth()
 
-  // Update cart count from localStorage
-  useEffect(() => {
-    const updateCartCount = () => {
-      const cart = JSON.parse(localStorage.getItem('itsmychoicee_cart') || '[]')
-      const count = cart.reduce((total, item) => total + item.quantity, 0)
-      setCartItemCount(count)
-    }
-
-    updateCartCount()
-    
-    // Listen for cart updates
-    window.addEventListener('storage', updateCartCount)
-    window.addEventListener('cartUpdated', updateCartCount)
-    
-    return () => {
-      window.removeEventListener('storage', updateCartCount)
-      window.removeEventListener('cartUpdated', updateCartCount)
-    }
-  }, [])
+  // Calculate cart count from props
+  const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0)
 
   // Load user order data when user is available
   useEffect(() => {
@@ -168,8 +150,8 @@ export default function Header() {
                 <Heart className="w-6 h-6" />
               </Link>
               
-              <Link
-                to="/cart"
+              <button
+                onClick={toggleCart}
                 className="p-2 text-gray-600 hover:text-purple-600 transition-colors relative"
                 title="Shopping Cart"
               >
@@ -179,7 +161,7 @@ export default function Header() {
                     {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
                 )}
-              </Link>
+              </button>
 
               {/* User Authentication */}
               {user ? (
@@ -389,9 +371,11 @@ export default function Header() {
                   <span className="text-xs">Wishlist</span>
                 </Link>
                 
-                <Link
-                  to="/cart"
-                  onClick={() => setIsMenuOpen(false)}
+                <button
+                  onClick={() => {
+                    toggleCart();
+                    setIsMenuOpen(false);
+                  }}
                   className="flex flex-col items-center px-3 py-2 text-gray-600 hover:text-purple-600 transition-colors relative"
                 >
                   <div className="relative">
@@ -403,7 +387,7 @@ export default function Header() {
                     )}
                   </div>
                   <span className="text-xs">Cart</span>
-                </Link>
+                </button>
               </div>
 
               {/* Mobile Authentication */}

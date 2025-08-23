@@ -153,7 +153,10 @@ function App() {
       <AuthProvider>
         <Router>
           <div className="App min-h-screen bg-gray-50">
-            <Header />
+            <Header 
+              cartItems={cartItems}
+              toggleCart={toggleCart}
+            />
             
             <Cart
               isOpen={isCartOpen}

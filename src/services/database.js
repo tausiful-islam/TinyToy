@@ -1,4 +1,5 @@
 import { supabase, TABLES, ORDER_STATUS } from '../lib/supabase.js'
+import { products as fallbackProducts } from '../data/products.js'
 
 // Products Service
 export const productService = {
@@ -23,8 +24,28 @@ export const productService = {
       if (error) throw error
       return { data, error: null }
     } catch (error) {
-      console.error('Error fetching products:', error)
-      return { data: null, error: error.message }
+      console.error('Error fetching products from Supabase, using fallback data:', error)
+      
+      // Return fallback data when Supabase fails
+      let filteredProducts = fallbackProducts.filter(product => product.stock > 0)
+      
+      if (filters.category && filters.category !== 'All') {
+        filteredProducts = filteredProducts.filter(product => product.category === filters.category)
+      }
+      
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase()
+        filteredProducts = filteredProducts.filter(product => 
+          product.name.toLowerCase().includes(searchLower) ||
+          product.description.toLowerCase().includes(searchLower)
+        )
+      }
+      
+      if (filters.limit) {
+        filteredProducts = filteredProducts.slice(0, filters.limit)
+      }
+      
+      return { data: filteredProducts, error: null }
     }
   },
 
@@ -40,8 +61,11 @@ export const productService = {
       if (error) throw error
       return { data, error: null }
     } catch (error) {
-      console.error('Error fetching product:', error)
-      return { data: null, error: error.message }
+      console.error('Error fetching product from Supabase, using fallback data:', error)
+      
+      // Return fallback data when Supabase fails
+      const product = fallbackProducts.find(p => p.id === parseInt(id))
+      return { data: product || null, error: null }
     }
   },
 
@@ -64,8 +88,15 @@ export const productService = {
       if (error) throw error
       return { data, error: null }
     } catch (error) {
-      console.error('Error fetching featured products:', error)
-      return { data: null, error: error.message }
+      console.error('Error fetching featured products from Supabase, using fallback data:', error)
+      
+      // Return fallback data when Supabase fails
+      const featuredProducts = fallbackProducts
+        .filter(product => product.featured && product.stock > 0)
+        .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        .slice(0, limit)
+      
+      return { data: featuredProducts, error: null }
     }
   },
 
