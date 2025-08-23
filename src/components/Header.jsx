@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Search, Heart, ShoppingCart, User, Menu, X } from 'lucide-react'
+import { Search, Heart, ShoppingCart, Menu, X } from 'lucide-react'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -137,14 +137,6 @@ export default function Header() {
                   </span>
                 )}
               </Link>
-              
-              <Link
-                to="/admin/login"
-                className="p-2 text-gray-600 hover:text-purple-600 transition-colors"
-                title="Account"
-              >
-                <User className="w-6 h-6" />
-              </Link>
             </div>
           </div>
 
@@ -250,15 +242,6 @@ export default function Header() {
                     )}
                   </div>
                   <span className="text-xs">Cart</span>
-                </Link>
-                
-                <Link
-                  to="/admin/login"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex flex-col items-center px-3 py-2 text-gray-600 hover:text-purple-600 transition-colors"
-                >
-                  <User className="w-6 h-6 mb-1" />
-                  <span className="text-xs">Account</span>
                 </Link>
               </div>
             </div>
