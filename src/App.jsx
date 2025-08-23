@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import Navbar from './components/Navbar';
+import Header from './components/Header';
 import Cart from './components/Cart';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -10,6 +10,7 @@ import ProductDetail from './pages/ProductDetail';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import Checkout from './pages/Checkout';
+import CartPage from './pages/Cart';
 import Wishlist from './pages/Wishlist';
 import OrderTracking from './pages/OrderTracking';
 import AdminLogin from './pages/AdminLogin';
@@ -49,7 +50,7 @@ function App() {
 
   // Load cart from localStorage on mount
   useEffect(() => {
-  const savedCart = localStorage.getItem('itsmychoicee-cart');
+    const savedCart = localStorage.getItem('itsmychoicee_cart');
     if (savedCart) {
       try {
         setCartItems(JSON.parse(savedCart));
@@ -58,7 +59,7 @@ function App() {
       }
     }
 
-  const savedWishlist = localStorage.getItem('itsmychoicee-wishlist');
+    const savedWishlist = localStorage.getItem('itsmychoicee_wishlist');
     if (savedWishlist) {
       try {
         setWishlistItems(JSON.parse(savedWishlist));
@@ -70,38 +71,57 @@ function App() {
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
-  localStorage.setItem('itsmychoicee-cart', JSON.stringify(cartItems));
+    localStorage.setItem('itsmychoicee_cart', JSON.stringify(cartItems));
+    // Dispatch event for cart updates
+    window.dispatchEvent(new Event('cartUpdated'));
   }, [cartItems]);
 
   // Save wishlist to localStorage whenever it changes
   useEffect(() => {
-  localStorage.setItem('itsmychoicee-wishlist', JSON.stringify(wishlistItems));
+    localStorage.setItem('itsmychoicee_wishlist', JSON.stringify(wishlistItems));
   }, [wishlistItems]);
 
-  // Add item to cart
-  const addToCart = (product) => {
+  // Add item to cart with variant support
+  const addToCart = (product, variant = null, attributes = null, quantity = 1) => {
     setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === product.id);
+      const cartKey = variant ? `${product.id}-${variant.id}` : `${product.id}`;
+      const existingItem = prevItems.find(item => 
+        variant 
+          ? (item.id === product.id && item.variant?.id === variant.id)
+          : item.id === product.id && !item.variant
+      );
+      
       if (existingItem) {
         return prevItems.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+          (variant 
+            ? (item.id === product.id && item.variant?.id === variant.id)
+            : item.id === product.id && !item.variant)
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       } else {
-        return [...prevItems, { ...product, quantity: 1 }];
+        const newItem = {
+          ...product,
+          cartKey,
+          quantity,
+          variant,
+          attributes,
+          // Use variant price if available, otherwise product price
+          price: variant?.price || product.price
+        };
+        return [...prevItems, newItem];
       }
     });
   };
 
   // Update item quantity
-  const updateQuantity = (productId, newQuantity) => {
+  const updateQuantity = (cartKey, newQuantity) => {
     if (newQuantity === 0) {
-      removeFromCart(productId);
+      removeFromCart(cartKey);
     } else {
       setCartItems(prevItems =>
         prevItems.map(item =>
-          item.id === productId
+          item.cartKey === cartKey
             ? { ...item, quantity: newQuantity }
             : item
         )
@@ -110,8 +130,8 @@ function App() {
   };
 
   // Remove item from cart
-  const removeFromCart = (productId) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
+  const removeFromCart = (cartKey) => {
+    setCartItems(prevItems => prevItems.filter(item => item.cartKey !== cartKey));
   };
 
   // Clear cart
@@ -154,7 +174,7 @@ function App() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -164,12 +184,8 @@ function App() {
   return (
     <HelmetProvider>
       <Router>
-        <div className="App">
-          <Navbar 
-            cartItems={cartItems} 
-            wishlistItems={wishlistItems}
-            toggleCart={toggleCart} 
-          />
+        <div className="App min-h-screen bg-gray-50">
+          <Header />
           
           <Cart
             isOpen={isCartOpen}
@@ -192,6 +208,10 @@ function App() {
               <Route 
                 path="/product/:id" 
                 element={<ProductDetail addToCart={addToCart} addToWishlist={addToWishlist} isInWishlist={isInWishlist} removeFromWishlist={removeFromWishlist} />} 
+              />
+              <Route 
+                path="/cart" 
+                element={<CartPage cartItems={cartItems} updateQuantity={updateQuantity} removeFromCart={removeFromCart} />} 
               />
               <Route 
                 path="/about" 

@@ -158,6 +158,74 @@ INSERT INTO products (name, description, long_description, price, category, imag
 
 ('Succulent Joy Garden Kit', 'Complete kit with mini succulents, pots, and care instructions.', 'Bring the joy of gardening into any space with this delightful succulent kit. Includes three mini succulents, decorative pots, and soil - perfect for beginners!', 29.99, 'Gifts', 'https://images.unsplash.com/photo-1459156212016-c812468e2115?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80', ARRAY['https://images.unsplash.com/photo-1459156212016-c812468e2115?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80', 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80', 'https://images.unsplash.com/photo-1485955900006-10f4d324d411?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80'], 25, 4.8, 178, true);
 
+-- VARIANT SUPPORT (composable attributes via JSONB)
+CREATE TABLE IF NOT EXISTS product_variants (
+  id BIGSERIAL PRIMARY KEY,
+  product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  sku VARCHAR(100),
+  attributes JSONB NOT NULL DEFAULT '{}'::jsonb, -- e.g. {"Size":"Large","Color":"Red"}
+  price DECIMAL(10,2),                           -- optional override
+  image TEXT,                                    -- optional variant image
+  stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT product_variant_unique UNIQUE (product_id, attributes)
+);
+
+CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
+
+-- Keep existing orders/order_items; add variant_id + snapshot attributes
+ALTER TABLE order_items
+  ADD COLUMN IF NOT EXISTS variant_id BIGINT REFERENCES product_variants(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT NULL;
+
+-- RLS: public can read product_variants, inserts/updates controlled via admin
+ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE polname = 'Variants are viewable by everyone'
+      AND tablename = 'product_variants'
+  ) THEN
+    CREATE POLICY "Variants are viewable by everyone" ON product_variants
+      FOR SELECT USING (true);
+  END IF;
+END $$;
+
+-- Optional: simple timestamp trigger (reuse your updater if you have it)
+CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_touch_product_variants ON product_variants;
+CREATE TRIGGER trg_touch_product_variants
+BEFORE UPDATE ON product_variants
+FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- Insert sample product variants for testing
+INSERT INTO product_variants (product_id, sku, attributes, price, stock, active) VALUES
+-- Sunshine Positivity Bear variants (Size variations)
+(1, 'SPB-SM', '{"Size":"Small"}', 19.99, 15, true),
+(1, 'SPB-MD', '{"Size":"Medium"}', 24.99, 25, true),
+(1, 'SPB-LG', '{"Size":"Large"}', 29.99, 10, true),
+
+-- Rainbow Smile Stress Ball variants (Color variations)
+(3, 'RSSB-RED', '{"Color":"Red"}', 12.99, 20, true),
+(3, 'RSSB-BLUE', '{"Color":"Blue"}', 12.99, 18, true),
+(3, 'RSSB-GREEN', '{"Color":"Green"}', 12.99, 22, true),
+(3, 'RSSB-YELLOW', '{"Color":"Yellow"}', 12.99, 15, true),
+
+-- Happy Thoughts Mug variants (Size and Color combinations)
+(7, 'HTM-SM-BLK', '{"Size":"Small","Color":"Black"}', 14.99, 12, true),
+(7, 'HTM-SM-WHT', '{"Size":"Small","Color":"White"}', 14.99, 15, true),
+(7, 'HTM-LG-BLK', '{"Size":"Large","Color":"Black"}', 18.99, 8, true),
+(7, 'HTM-LG-WHT', '{"Size":"Large","Color":"White"}', 18.99, 10, true);
+
 -- Create admin user (you'll need to run this in Supabase Auth settings)
 -- This is just a reference - actual user creation should be done through Supabase dashboard
 -- INSERT INTO auth.users (email, encrypted_password, email_confirmed_at, created_at, updated_at)

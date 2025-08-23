@@ -29,7 +29,7 @@ export const productService = {
   },
 
   // Get single product by ID
-  async getProduct(id) {
+  async getProductById(id) {
     try {
       const { data, error } = await supabase
         .from(TABLES.PRODUCTS)
@@ -45,12 +45,18 @@ export const productService = {
     }
   },
 
+  // Get product by ID (legacy method name for compatibility)
+  async getProduct(id) {
+    return this.getProductById(id)
+  },
+
   // Get featured products
   async getFeaturedProducts(limit = 6) {
     try {
       const { data, error } = await supabase
         .from(TABLES.PRODUCTS)
         .select('*')
+        .eq('featured', true)
         .gt('stock', 0)
         .order('rating', { ascending: false })
         .limit(limit)
@@ -81,21 +87,175 @@ export const productService = {
   }
 }
 
+// Product Variants Service
+export const variantService = {
+  // Get all variants for a product
+  async getVariantsForProduct(productId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PRODUCT_VARIANTS)
+        .select('*')
+        .eq('product_id', productId)
+        .eq('active', true)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error fetching variants:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get distinct attribute keys and possible values for a product
+  async getVariantAttributeMatrix(productId) {
+    try {
+      const { data: variants, error } = await supabase
+        .from(TABLES.PRODUCT_VARIANTS)
+        .select('attributes')
+        .eq('product_id', productId)
+        .eq('active', true)
+
+      if (error) throw error
+
+      if (!variants || variants.length === 0) {
+        return { data: {}, error: null }
+      }
+
+      // Build attribute matrix
+      const matrix = {}
+      variants.forEach(variant => {
+        const attrs = variant.attributes || {}
+        Object.keys(attrs).forEach(key => {
+          if (!matrix[key]) {
+            matrix[key] = new Set()
+          }
+          matrix[key].add(attrs[key])
+        })
+      })
+
+      // Convert Sets to Arrays
+      const result = {}
+      Object.keys(matrix).forEach(key => {
+        result[key] = Array.from(matrix[key]).sort()
+      })
+
+      return { data: result, error: null }
+    } catch (error) {
+      console.error('Error fetching attribute matrix:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Check if a selection maps to a valid, active, in-stock variant
+  async resolveVariant(productId, attributes) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PRODUCT_VARIANTS)
+        .select('*')
+        .eq('product_id', productId)
+        .eq('active', true)
+        .eq('attributes', JSON.stringify(attributes))
+        .gt('stock', 0)
+        .single()
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error
+      }
+
+      return { data: data || null, error: null }
+    } catch (error) {
+      console.error('Error resolving variant:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Get variant by ID
+  async getVariantById(variantId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PRODUCT_VARIANTS)
+        .select('*')
+        .eq('id', variantId)
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error fetching variant:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Create variant (admin)
+  async createVariant(variantData) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PRODUCT_VARIANTS)
+        .insert(variantData)
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error creating variant:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Update variant (admin)
+  async updateVariant(variantId, variantData) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PRODUCT_VARIANTS)
+        .update(variantData)
+        .eq('id', variantId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error updating variant:', error)
+      return { data: null, error: error.message }
+    }
+  },
+
+  // Delete variant (admin)
+  async deleteVariant(variantId) {
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PRODUCT_VARIANTS)
+        .delete()
+        .eq('id', variantId)
+        .select()
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      console.error('Error deleting variant:', error)
+      return { data: null, error: error.message }
+    }
+  }
+}
+
 // Orders Service
 export const orderService = {
-  // Create new order
-  async createOrder(orderData, orderItems) {
+  // Create new order with variant support
+  async createOrder(orderInput) {
     try {
       // Start a transaction-like process
       const { data: order, error: orderError } = await supabase
         .from(TABLES.ORDERS)
         .insert({
-          customer_name: orderData.name,
-          customer_email: orderData.email,
-          customer_phone: orderData.phone,
-          address: orderData.address,
-          payment_method: orderData.paymentMethod,
-          total: orderData.total,
+          customer_name: orderInput.customer_name,
+          customer_email: orderInput.customer_email,
+          customer_phone: orderInput.customer_phone,
+          address: orderInput.address,
+          payment_method: orderInput.payment_method,
+          total: orderInput.total,
+          notes: orderInput.notes,
           status: ORDER_STATUS.PENDING,
           created_at: new Date().toISOString()
         })
@@ -104,10 +264,12 @@ export const orderService = {
 
       if (orderError) throw orderError
 
-      // Add order items
-      const orderItemsData = orderItems.map(item => ({
+      // Add order items with variant support
+      const orderItemsData = orderInput.items.map(item => ({
         order_id: order.id,
-        product_id: item.id,
+        product_id: item.product_id,
+        variant_id: item.variant_id || null,
+        attributes: item.attributes || null,
         quantity: item.quantity,
         price: item.price
       }))
@@ -119,19 +281,36 @@ export const orderService = {
 
       if (itemsError) throw itemsError
 
-      // Update product stock
-      for (const item of orderItems) {
-        const { data: product } = await supabase
-          .from(TABLES.PRODUCTS)
-          .select('stock')
-          .eq('id', item.id)
-          .single()
+      // Update stock (variant stock if variant exists, otherwise product stock)
+      for (const item of orderInput.items) {
+        if (item.variant_id) {
+          // Update variant stock
+          const { data: variant } = await supabase
+            .from(TABLES.PRODUCT_VARIANTS)
+            .select('stock')
+            .eq('id', item.variant_id)
+            .single()
 
-        if (product) {
-          await supabase
+          if (variant) {
+            await supabase
+              .from(TABLES.PRODUCT_VARIANTS)
+              .update({ stock: variant.stock - item.quantity })
+              .eq('id', item.variant_id)
+          }
+        } else {
+          // Update product stock
+          const { data: product } = await supabase
             .from(TABLES.PRODUCTS)
-            .update({ stock: product.stock - item.quantity })
-            .eq('id', item.id)
+            .select('stock')
+            .eq('id', item.product_id)
+            .single()
+
+          if (product) {
+            await supabase
+              .from(TABLES.PRODUCTS)
+              .update({ stock: product.stock - item.quantity })
+              .eq('id', item.product_id)
+          }
         }
       }
 
@@ -142,7 +321,7 @@ export const orderService = {
     }
   },
 
-  // Get order by ID
+  // Get order by ID with variant information
   async getOrder(orderId) {
     try {
       const { data: order, error: orderError } = await supabase
@@ -151,7 +330,8 @@ export const orderService = {
           *,
           order_items (
             *,
-            products (*)
+            products (*),
+            product_variants (*)
           )
         `)
         .eq('id', orderId)
@@ -165,7 +345,7 @@ export const orderService = {
     }
   },
 
-  // Get all orders (for admin)
+  // Get all orders (for admin) with variant information
   async getAllOrders() {
     try {
       const { data, error } = await supabase
@@ -174,7 +354,8 @@ export const orderService = {
           *,
           order_items (
             *,
-            products (name, image)
+            products (name, image),
+            product_variants (attributes, image)
           )
         `)
         .order('created_at', { ascending: false })
