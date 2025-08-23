@@ -144,7 +144,33 @@ Ensure your repository contains these essential files:
    - **User Profiles**: Complete customer information storage
    - **Address Management**: Multiple shipping addresses per customer
 
-### 2.3 Get API Credentials
+### 2.3 Create Admin User for Admin Panel
+
+**⚠️ IMPORTANT**: After running the database schema, you need to create an admin user for the admin panel to work.
+
+1. **Go to Supabase Authentication**
+   - In your Supabase dashboard
+   - Click "Authentication" in the left sidebar
+   - Click "Users" tab
+
+2. **Create Admin User**
+   - Click "Add user" button
+   - Fill in the details:
+     ```
+     Email: admin@itsmychoicee.com
+     Password: admin123 (or your secure password)
+     ```
+   - Click "Create user"
+   - ✅ User will be created with confirmed email
+
+3. **Verify Admin User Creation**
+   - User should appear in the Users list
+   - Status should show "Confirmed"
+   - Email should be `admin@itsmychoicee.com`
+
+**📝 Note**: This admin user will be used to login to your admin panel at `/admin/login`
+
+### 2.4 Get API Credentials
 
 1. **Get Project URL and API Key**
    - Go to "Settings" → "API"
@@ -175,7 +201,7 @@ Ensure your repository contains these essential files:
      -H "Authorization: Bearer your-anon-key"
    ```
 
-### 2.4 Configure Row Level Security (RLS)
+### 2.5 Configure Row Level Security (RLS)
 
 1. **Verify Complete RLS Policies**
    - Go to "Authentication" → "Policies"
@@ -232,7 +258,7 @@ Ensure your repository contains these essential files:
    VITE_SUPABASE_URL=https://your-project-id.supabase.co
    VITE_SUPABASE_ANON_KEY=your-anon-key-here
    VITE_ADMIN_EMAIL=admin@itsmychoicee.com
-   VITE_ADMIN_PASSWORD=your-secure-admin-password
+   VITE_ADMIN_PASSWORD=admin123
    VITE_APP_NAME=Its My Choicee
    VITE_APP_URL=https://your-app.vercel.app
    NODE_ENV=production
@@ -240,8 +266,9 @@ Ensure your repository contains these essential files:
    ```
 
    **⚠️ Important**: 
-   - Use your actual Supabase URL and API key
-   - Create a secure admin password
+   - Use your actual Supabase URL and API key from Step 2.4
+   - VITE_ADMIN_EMAIL must match the admin user created in Step 2.3
+   - VITE_ADMIN_PASSWORD must match the password set in Step 2.3
    - Don't use spaces in environment variable values
 
 ### 3.3 Deploy the Application
@@ -336,8 +363,13 @@ Ensure your repository contains these essential files:
 
 1. **Admin Login & Access**
    - Go to `your-domain.vercel.app/admin` → Should redirect to `/admin/login`
-   - Use admin credentials from environment variables
+   - Use admin credentials from Step 2.3:
+     ```
+     Email: admin@itsmychoicee.com
+     Password: admin123 (or your chosen password)
+     ```
    - ✅ Login should succeed and redirect to admin dashboard
+   - ✅ If login fails, verify the user exists in Supabase Authentication → Users
 
 2. **Complete Admin Dashboard Features**
    ```

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Search, Heart, ShoppingCart, Menu, X, User, LogOut, Settings, Package, MapPin, Clock } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
-import { orderService } from '../services/database'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { orderService } from '../services/database.js'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import { customerService, orderService } from '../services/database'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { customerService, orderService } from '../services/database.js'
 import { 
   User, 
   MapPin, 
