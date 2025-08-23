@@ -32,10 +32,10 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        const { data, error } = await productService.getProducts({ id: parseInt(id) });
+        const { data, error } = await productService.getProductById(parseInt(id));
         if (error) throw new Error(error);
-        if (data && data.length > 0) {
-          setProduct(data[0]);
+        if (data) {
+          setProduct(data);
         }
       } catch (err) {
         console.error('Error fetching product:', err);
