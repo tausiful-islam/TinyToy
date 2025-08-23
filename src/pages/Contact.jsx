@@ -28,8 +28,8 @@ const Contact = () => {
   return (
     <>
       <Helmet>
-        <title>Contact Us - JoyfulFinds</title>
-        <meta name="description" content="Get in touch with JoyfulFinds. We'd love to hear from you!" />
+        <title>Contact Us - Its My Choicee</title>
+        <meta name="description" content="Get in touch with Its My Choicee. We'd love to hear from you!" />
       </Helmet>
       <div className="min-h-screen bg-gray-50 pt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

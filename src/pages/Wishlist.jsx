@@ -45,14 +45,14 @@ const Wishlist = ({ wishlistItems, addToCart, removeFromWishlist }) => {
   return (
     <>
       <Helmet>
-        <title>My Wishlist - TinyToy</title>
+        <title>My Wishlist - Its My Choicee</title>
         <meta 
           name="description" 
-          content="View and manage your favorite products in your TinyToy wishlist. Save items for later and easily add them to your cart." 
+          content="View and manage your favorite products in your Its My Choicee wishlist. Save items for later and easily add them to your cart." 
         />
-        <meta name="keywords" content="wishlist, favorites, saved products, TinyToy" />
-        <meta property="og:title" content="My Wishlist - TinyToy" />
-        <meta property="og:description" content="View and manage your favorite products in your TinyToy wishlist." />
+        <meta name="keywords" content="wishlist, favorites, saved products, Its My Choicee" />
+        <meta property="og:title" content="My Wishlist - Its My Choicee" />
+        <meta property="og:description" content="View and manage your favorite products in your Its My Choicee wishlist." />
       </Helmet>
 
       <motion.div

@@ -204,14 +204,14 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     <>
       <Helmet>
   <title>{product.name} - Its My Choicee | Premium Quality Products</title>
-        <meta name="description" content={`${product.description} - Shop ${product.name} at TinyToy. Premium quality, designed for everyday joy.`} />
-        <meta name="keywords" content={`${product.name}, ${product.category}, toys, home decor, TinyToy`} />
+        <meta name="description" content={`${product.description} - Shop ${product.name} at Its My Choicee. Premium quality, designed for your unique style.`} />
+        <meta name="keywords" content={`${product.name}, ${product.category}, fashion, home decor, Its My Choicee`} />
         
         {/* OpenGraph Meta Tags */}
   <meta property="og:title" content={`${product.name} - Its My Choicee`} />
         <meta property="og:description" content={product.description} />
         <meta property="og:type" content="product" />
-        <meta property="og:url" content={`https://tinytoy.com/product/${product.id}`} />
+        <meta property="og:url" content={`https://itsmychoicee.com/product/${product.id}`} />
         <meta property="og:image" content={product.image} />
         <meta property="og:price:amount" content={product.price} />
         <meta property="og:price:currency" content="USD" />
@@ -230,7 +230,7 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
             "name": product.name,
             "description": product.description,
             "image": product.image,
-            "brand": "TinyToy",
+            "brand": "Its My Choicee",
             "category": product.category,
             "offers": {
               "@type": "Offer",

@@ -10,7 +10,7 @@ const Footer = () => {
           {/* Company Info */}
           <div className="space-y-4">
             <h3 className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent">
-              JoyfulFinds
+              Its My Choicee
             </h3>
             <p className="text-gray-300 leading-relaxed">
               Curating products that spark joy and bring happiness to your everyday life. 
@@ -89,7 +89,7 @@ const Footer = () => {
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Mail className="h-4 w-4 text-primary-400" />
-                <span className="text-gray-300">hello@joyfulfinds.com</span>
+                <span className="text-gray-300">hello@itsmychoicee.com</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="h-4 w-4 text-primary-400" />
@@ -112,10 +112,10 @@ const Footer = () => {
             <div className="flex items-center space-x-2 text-gray-300">
               <span>Made with</span>
               <Heart className="h-4 w-4 text-red-400" />
-              <span>by JoyfulFinds Team</span>
+              <span>by Its My Choicee Team</span>
             </div>
             <div className="text-gray-300 text-sm">
-              © 2024 JoyfulFinds. All rights reserved.
+              © 2024 Its My Choicee. All rights reserved.
             </div>
             <div className="flex space-x-6 text-sm">
               <a href="#" className="text-gray-300 hover:text-white transition-colors duration-200">

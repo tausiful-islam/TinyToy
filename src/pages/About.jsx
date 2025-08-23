@@ -6,18 +6,18 @@ const About = () => {
   return (
     <>
       <Helmet>
-        <title>About Us - JoyfulFinds</title>
-        <meta name="description" content="Learn about JoyfulFinds - our story, values, and mission to spread joy through carefully curated products." />
+        <title>About Us - Its My Choicee</title>
+        <meta name="description" content="Learn about Its My Choicee - our story, values, and mission to empower your personal style through carefully curated products." />
       </Helmet>
       <div className="min-h-screen bg-gray-50 pt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-            About <span className="bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">Joy Store</span>
+            About <span className="bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent">Its My Choicee</span>
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            We believe that happiness should be accessible to everyone. Our mission is to curate and create products that bring genuine joy to your everyday life.
+            We believe that your personal style should reflect who you truly are. Our mission is to curate products that empower your individual choices and help you express your unique personality.
           </p>
         </div>
 
@@ -27,7 +27,7 @@ const About = () => {
             <div>
               <h2 className="text-3xl font-bold text-gray-900 mb-6">Our Story</h2>
               <p className="text-gray-600 leading-relaxed mb-6">
-                Joy Store was born from a simple belief: that small, beautiful things can make a big difference in how we feel each day. Founded in 2024, we started with a mission to find and create products that don't just serve a function, but actually make people smile.
+                Its My Choicee was born from a simple belief: that everyone deserves to express their unique style and personality. Founded in 2024, we started with a mission to find and curate products that don't just serve a function, but actually help you showcase who you are.
               </p>
               <p className="text-gray-600 leading-relaxed mb-6">
                 Every product in our collection is carefully selected or designed with one question in mind: "Does this spark joy?" From the moment you unbox your order to years of daily use, we want our products to be a source of happiness in your life.

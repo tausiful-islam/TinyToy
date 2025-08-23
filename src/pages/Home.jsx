@@ -46,7 +46,7 @@ const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) =>
             >
               <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-full shadow-md">
                 <Sparkles className="h-5 w-5 text-accent-500" />
-                <span className="text-sm font-medium text-gray-700">Spreading Joy Since 2024</span>
+                <span className="text-sm font-medium text-gray-700">Your Choice Since 2024</span>
                 <Sparkles className="h-5 w-5 text-accent-500" />
               </div>
             </motion.div>
@@ -67,7 +67,7 @@ const Home = ({ addToCart, addToWishlist, removeFromWishlist, isInWishlist }) =>
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
             >
-              Curated collection of beautiful, positive products designed to bring happiness and joy to your everyday life.
+              Discover amazing products that match your unique style and personality. At Its My Choicee, every item is carefully selected to help you express who you truly are.
             </motion.p>
             
             <motion.div 
