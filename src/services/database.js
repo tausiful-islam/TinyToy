@@ -287,14 +287,11 @@ export const orderService = {
           customer_email: orderInput.email || orderInput.customer_email,
           customer_phone: orderInput.phone || orderInput.customer_phone,
           user_id: isAuthenticated ? user.id : null, // Link to user if authenticated
-          customer_id: isAuthenticated ? user.id : null, // Keep for backward compatibility
-          is_guest_order: !isAuthenticated, // Track if this is a guest order
           address: orderInput.address,
           payment_method: orderInput.paymentMethod || orderInput.payment_method,
           total: orderInput.total,
           notes: orderInput.notes || null,
-          status: ORDER_STATUS.PENDING,
-          created_at: new Date().toISOString()
+          status: ORDER_STATUS.PENDING
         };
       } else {
         // Legacy format: orderInput contains everything
@@ -303,14 +300,11 @@ export const orderService = {
           customer_email: orderInput.customer_email,
           customer_phone: orderInput.customer_phone,
           user_id: isAuthenticated ? user.id : null, // Link to user if authenticated
-          customer_id: isAuthenticated ? user.id : null, // Keep for backward compatibility
-          is_guest_order: !isAuthenticated, // Track if this is a guest order
           address: orderInput.address,
           payment_method: orderInput.payment_method,
           total: orderInput.total,
           notes: orderInput.notes,
-          status: ORDER_STATUS.PENDING,
-          created_at: new Date().toISOString()
+          status: ORDER_STATUS.PENDING
         };
         cartItems = orderInput.items; // Items are in orderInput for legacy format
       }
@@ -428,7 +422,6 @@ export const orderService = {
           )
         `)
         .eq('user_id', userId)
-        .eq('is_guest_order', false)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -452,7 +445,7 @@ export const orderService = {
             product_variants (attributes, image)
           )
         `)
-        .eq('customer_id', userId)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -477,7 +470,7 @@ export const orderService = {
           )
         `)
         .eq('id', orderId)
-        .eq('customer_id', userId)
+        .eq('user_id', userId)
         .single()
 
       if (orderError) throw orderError
