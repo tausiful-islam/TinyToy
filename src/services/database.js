@@ -534,49 +534,14 @@ export const orderService = {
 
 // Auth Service
 export const authService = {
-  // Admin login with proper role setting and environment validation
+  // Admin login - simplified Supabase authentication
   async adminLogin(email, password) {
     try {
-      // Check against environment admin emails
-      const adminEmails = [
-        import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com',
-        'admin@yourdomain.com'
-      ]
-      
-      if (!adminEmails.includes(email.toLowerCase().trim())) {
-        throw new Error('Invalid admin credentials')
+      if (!email || !password) {
+        throw new Error('Email and password are required')
       }
 
-      // Check if using demo credentials
-      const demoEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com'
-      const demoPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
-      
-      if (email === demoEmail && password === demoPassword) {
-        // Demo admin login (when Supabase not set up)
-        const demoUser = {
-          id: 'demo-admin-id',
-          email: demoEmail,
-          user_metadata: {
-            user_type: 'admin',
-            full_name: 'Demo Admin'
-          },
-          email_confirmed_at: new Date().toISOString()
-        }
-        
-        return {
-          data: {
-            user: demoUser,
-            session: { user: demoUser, access_token: 'demo-token' }
-          },
-          error: null,
-          user: demoUser,
-          session: { user: demoUser, access_token: 'demo-token' },
-          isDemo: true,
-          message: 'Demo admin login successful!'
-        }
-      }
-
-      // Real Supabase admin login
+      // Attempt Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.toLowerCase().trim(),
         password
@@ -584,12 +549,21 @@ export const authService = {
 
       if (error) {
         if (error.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid admin credentials')
+          throw new Error('Invalid email or password')
         }
         throw new Error(error.message)
       }
 
-      // Update user metadata to set admin role
+      // Check if user has admin permissions after successful login
+      const isUserAdmin = this.isAdmin(data.user)
+      
+      if (!isUserAdmin) {
+        // Sign out the user since they don't have admin access
+        await supabase.auth.signOut()
+        throw new Error('Access denied. Admin privileges required.')
+      }
+
+      // Update user metadata to ensure admin role is set
       const { data: updateData, error: updateError } = await supabase.auth.updateUser({
         data: {
           ...data.user.user_metadata,
@@ -601,25 +575,26 @@ export const authService = {
         console.warn('Failed to update admin role:', updateError)
       }
 
-      // Use updated user data if available
+      // Use updated user data if available, otherwise use original
       const adminUser = updateData?.user || data.user
 
+      // Return consistent structure expected by AuthContext
       return { 
-        data: { ...data, user: adminUser }, 
+        data: {
+          user: adminUser,
+          session: data.session
+        },
         error: null,
         user: adminUser,
-        session: { ...data.session, user: adminUser },
-        isDemo: false,
-        message: 'Admin login successful!'
+        session: data.session
       }
     } catch (error) {
-      console.error('Error logging in:', error)
+      console.error('Admin login error:', error)
       return { 
         data: null, 
-        error: error.message || 'Failed to authenticate admin. Please try again.',
+        error: error.message || 'Failed to authenticate. Please try again.',
         user: null,
-        session: null,
-        isDemo: false
+        session: null
       }
     }
   },

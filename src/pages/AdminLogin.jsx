@@ -66,14 +66,6 @@ const AdminLogin = () => {
     }
   };
 
-  // Demo credentials hint
-  const useDemoCredentials = () => {
-    setFormData({
-      email: import.meta.env.VITE_ADMIN_EMAIL || 'admin@yourdomain.com',
-      password: import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
-    });
-  };
-
   return (
     <>
       <Helmet>
@@ -184,28 +176,6 @@ const AdminLogin = () => {
                       <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
                     )}
                   </button>
-                </div>
-              </div>
-
-              {/* Demo Credentials */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    <Shield className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-blue-800">Demo Access</h3>
-                    <p className="text-sm text-blue-700 mt-1">
-                      Click below to use demo credentials for testing purposes.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={useDemoCredentials}
-                      className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
-                    >
-                      Use Demo Credentials
-                    </button>
-                  </div>
                 </div>
               </div>
 
