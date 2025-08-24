@@ -1,6 +1,5 @@
 import { supabase, TABLES, ORDER_STATUS } from '../lib/supabase.js'
 import { products as fallbackProducts } from '../data/products.js'
-import { authService } from './authService.js'
 
 // Products Service
 export const productService = {
@@ -395,7 +394,16 @@ export const orderService = {
         .eq('id', orderId)
 
       // If user is provided, add permission check for non-admin users
-      if (user && !authService.isAdmin(user)) {
+      // Check if user is admin by checking user_metadata or admin emails
+      const isUserAdmin = user && (
+        user?.user_metadata?.user_type === 'admin' ||
+        [
+          import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com',
+          'admin@yourdomain.com'
+        ].includes(user?.email?.toLowerCase())
+      )
+      
+      if (user && !isUserAdmin) {
         query = query.eq('user_id', user.id)
       }
 
@@ -526,19 +534,93 @@ export const orderService = {
 
 // Auth Service
 export const authService = {
-  // Admin login
+  // Admin login with proper role setting and environment validation
   async adminLogin(email, password) {
     try {
+      // Check against environment admin emails
+      const adminEmails = [
+        import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com',
+        'admin@yourdomain.com'
+      ]
+      
+      if (!adminEmails.includes(email.toLowerCase().trim())) {
+        throw new Error('Invalid admin credentials')
+      }
+
+      // Check if using demo credentials
+      const demoEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com'
+      const demoPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
+      
+      if (email === demoEmail && password === demoPassword) {
+        // Demo admin login (when Supabase not set up)
+        const demoUser = {
+          id: 'demo-admin-id',
+          email: demoEmail,
+          user_metadata: {
+            user_type: 'admin',
+            full_name: 'Demo Admin'
+          },
+          email_confirmed_at: new Date().toISOString()
+        }
+        
+        return {
+          data: {
+            user: demoUser,
+            session: { user: demoUser, access_token: 'demo-token' }
+          },
+          error: null,
+          user: demoUser,
+          session: { user: demoUser, access_token: 'demo-token' },
+          isDemo: true,
+          message: 'Demo admin login successful!'
+        }
+      }
+
+      // Real Supabase admin login
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.toLowerCase().trim(),
         password
       })
 
-      if (error) throw error
-      return { data, error: null }
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid admin credentials')
+        }
+        throw new Error(error.message)
+      }
+
+      // Update user metadata to set admin role
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        data: {
+          ...data.user.user_metadata,
+          user_type: 'admin'
+        }
+      })
+
+      if (updateError) {
+        console.warn('Failed to update admin role:', updateError)
+      }
+
+      // Use updated user data if available
+      const adminUser = updateData?.user || data.user
+
+      return { 
+        data: { ...data, user: adminUser }, 
+        error: null,
+        user: adminUser,
+        session: { ...data.session, user: adminUser },
+        isDemo: false,
+        message: 'Admin login successful!'
+      }
     } catch (error) {
       console.error('Error logging in:', error)
-      return { data: null, error: error.message }
+      return { 
+        data: null, 
+        error: error.message || 'Failed to authenticate admin. Please try again.',
+        user: null,
+        session: null,
+        isDemo: false
+      }
     }
   },
 
@@ -718,6 +800,48 @@ export const authService = {
   // Listen to auth changes
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
+  },
+
+  // Check if user has admin role
+  isAdmin(user) {
+    if (!user) return false
+    
+    // Check user_type in metadata
+    if (user?.user_metadata?.user_type === 'admin') {
+      return true
+    }
+    
+    // Check against admin emails from environment variables
+    const adminEmails = [
+      import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com',
+      'admin@yourdomain.com'
+    ]
+    
+    return adminEmails.includes(user?.email?.toLowerCase())
+  },
+
+  // Check if user has specific role
+  hasRole(user, role) {
+    if (!user || !role) return false
+    return user?.user_metadata?.user_type === role
+  },
+
+  // Check if user has customer role
+  isCustomer(user) {
+    if (!user) return false
+    return this.hasRole(user, 'customer') || (!this.isAdmin(user) && !!user.email)
+  },
+
+  // Get user display name
+  getUserDisplayName(user) {
+    if (!user) return 'User'
+    
+    return (
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.first_name ||
+      user?.email?.split('@')[0] ||
+      'User'
+    )
   }
 }
 
