@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle, CheckCircle, RefreshCw, Info } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -19,6 +19,8 @@ const Login = () => {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [showVerificationHelp, setShowVerificationHelp] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -27,6 +29,27 @@ const Login = () => {
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, authLoading, navigate, location]);
+
+  // Handle verification messages from signup redirect
+  useEffect(() => {
+    if (location.state?.message) {
+      setMessage({ 
+        type: 'success', 
+        text: location.state.message 
+      });
+      
+      // Pre-fill email if provided
+      if (location.state?.email) {
+        setFormData(prev => ({
+          ...prev,
+          email: location.state.email
+        }));
+      }
+      
+      // Clear the location state to prevent message from persisting on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -152,6 +175,36 @@ const Login = () => {
     }
   };
 
+  // Handle resend verification email
+  const handleResendVerification = async () => {
+    if (!formData.email) {
+      setErrors({ email: 'Please enter your email address' });
+      return;
+    }
+
+    setResendLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // You would call your auth service's resend verification method here
+      // For now, we'll simulate the API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setMessage({ 
+        type: 'success', 
+        text: 'Verification email sent! Please check your inbox and spam folder.' 
+      });
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Failed to resend verification email. Please try again.' 
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   // Show loading spinner if checking auth state
   if (authLoading) {
     return (
@@ -257,6 +310,61 @@ const Login = () => {
                   <AlertCircle className="h-4 w-4" />
                   <span>{errors.email}</span>
                 </p>
+              )}
+              
+              {/* Email verification helper text */}
+              {!showForgotPassword && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setShowVerificationHelp(!showVerificationHelp)}
+                      className="text-xs text-gray-500 hover:text-gray-700 flex items-center space-x-1 transition-colors"
+                    >
+                      <Info className="h-3 w-3" />
+                      <span>Having trouble logging in?</span>
+                    </button>
+                    
+                    {formData.email && (
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resendLoading}
+                        className={`text-xs transition-colors flex items-center space-x-1 ${
+                          resendLoading 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-blue-600 hover:text-blue-500'
+                        }`}
+                      >
+                        {resendLoading ? (
+                          <>
+                            <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent"></div>
+                            <span>Sending...</span>
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="h-3 w-3" />
+                            <span>Resend verification</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {showVerificationHelp && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-xs text-blue-800 mb-2">
+                        <strong>Can't log in?</strong> Make sure you've verified your email address.
+                      </p>
+                      <ul className="text-xs text-blue-700 space-y-1">
+                        <li>• Check your email inbox for a verification link</li>
+                        <li>• Look in your spam/junk folder</li>
+                        <li>• Click "Resend verification" if you need a new email</li>
+                        <li>• Contact support if you're still having issues</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

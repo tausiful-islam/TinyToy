@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle, Check, X, RefreshCw, LogIn } from 'lucide-react';
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -24,6 +24,9 @@ const SignUp = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [signUpComplete, setSignUpComplete] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     checks: {
@@ -158,20 +161,12 @@ const SignUp = () => {
       
       if (result.success) {
         if (result.requiresVerification) {
+          setUserEmail(formData.email);
+          setSignUpComplete(true);
           setMessage({ 
             type: 'success', 
-            text: 'Account created! Please check your email to verify your account before signing in.' 
+            text: 'Account created successfully! Please check your email to verify your account.' 
           });
-          
-          // Redirect to login after showing message
-          setTimeout(() => {
-            navigate('/login', { 
-              state: { 
-                message: 'Please verify your email before signing in.',
-                email: formData.email 
-              }
-            });
-          }, 3000);
         } else {
           setMessage({ 
             type: 'success', 
@@ -199,6 +194,41 @@ const SignUp = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle resend verification email
+  const handleResendVerification = async () => {
+    setResendLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // You would call your auth service's resend verification method here
+      // For now, we'll simulate the API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setMessage({ 
+        type: 'success', 
+        text: 'Verification email sent! Please check your inbox and spam folder.' 
+      });
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Failed to resend verification email. Please try again.' 
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  // Handle go to login
+  const handleGoToLogin = () => {
+    navigate('/login', { 
+      state: { 
+        message: 'Please verify your email before signing in.',
+        email: userEmail 
+      }
+    });
   };
 
   // Get password strength color and text
@@ -289,6 +319,85 @@ const SignUp = () => {
               </p>
             </div>
           )}
+
+          {/* Conditional Rendering: Email Verification Success State or Signup Form */}
+          {signUpComplete ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center"
+            >
+              {/* Success Icon */}
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+                <Mail className="h-8 w-8 text-green-600" />
+              </div>
+
+              {/* Title */}
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                Check your email
+              </h3>
+
+              {/* Description */}
+              <p className="text-gray-600 mb-6">
+                We've sent a verification link to:
+              </p>
+              <p className="text-lg font-semibold text-gray-900 mb-6 bg-gray-50 p-3 rounded-lg">
+                {userEmail}
+              </p>
+
+              {/* Instructions */}
+              <div className="text-left bg-blue-50 p-4 rounded-lg mb-6">
+                <h4 className="font-semibold text-blue-900 mb-2">Next steps:</h4>
+                <ol className="text-sm text-blue-800 space-y-1">
+                  <li>1. Check your email inbox (and spam folder)</li>
+                  <li>2. Click the verification link in the email</li>
+                  <li>3. Return here to sign in to your account</li>
+                </ol>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                {/* Resend Email Button */}
+                <button
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className={`w-full flex justify-center items-center space-x-2 py-2 px-4 border border-gray-300 rounded-md text-sm font-medium transition-all duration-200 ${
+                    resendLoading
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                  }`}
+                >
+                  {resendLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      <span>Resend verification email</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Go to Login Button */}
+                <button
+                  onClick={handleGoToLogin}
+                  className="w-full flex justify-center items-center space-x-2 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-all duration-200 hover:shadow-lg transform hover:-translate-y-0.5"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span>Go to Login</span>
+                </button>
+              </div>
+
+              {/* Help Text */}
+              <p className="mt-6 text-xs text-gray-500">
+                Didn't receive the email? Check your spam folder or try resending.
+              </p>
+            </motion.div>
+          ) : (
+            /* Signup Form */
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Name Fields */}
@@ -595,29 +704,34 @@ const SignUp = () => {
               </button>
             </div>
           </form>
+          )}
 
-          {/* Additional Links */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link
-                to="/login"
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
-              >
-                Sign in here
-              </Link>
-            </p>
-          </div>
+          {/* Additional Links - Only show when not in signup complete state */}
+          {!signUpComplete && (
+            <>
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{' '}
+                  <Link
+                    to="/login"
+                    className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                  >
+                    Sign in here
+                  </Link>
+                </p>
+              </div>
 
-          {/* Back to Store Link */}
-          <div className="mt-4 text-center">
-            <Link
-              to="/"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center justify-center space-x-1"
-            >
-              <span>← Back to store</span>
-            </Link>
-          </div>
+              {/* Back to Store Link */}
+              <div className="mt-4 text-center">
+                <Link
+                  to="/"
+                  className="text-sm text-gray-500 hover:text-gray-700 transition-colors flex items-center justify-center space-x-1"
+                >
+                  <span>← Back to store</span>
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       </motion.div>
     </div>
