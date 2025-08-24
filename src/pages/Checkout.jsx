@@ -47,23 +47,25 @@ const Checkout = ({ cartItems, clearCart }) => {
   };
 
   const validateForm = () => {
-    const required = ['name', 'email', 'phone', 'address', 'city'];
+    const required = ['name', 'phone', 'address', 'city'];
     for (let field of required) {
       if (!formData[field].trim()) {
         return `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
       }
     }
     
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      return 'Please enter a valid email address';
-    }
-
-    // Phone validation
+    // Phone validation (required)
     const phoneRegex = /^\+?[\d\s-()]{10,}$/;
     if (!phoneRegex.test(formData.phone)) {
       return 'Please enter a valid phone number';
+    }
+    
+    // Email validation (optional but must be valid if provided)
+    if (formData.email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        return 'Please enter a valid email address';
+      }
     }
 
     // Password validation when creating account
@@ -99,13 +101,13 @@ const Checkout = ({ cartItems, clearCart }) => {
     setIsLoading(true);
 
     try {
-      // Prepare order data
+      // Prepare order data - map to database schema
       const orderData = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        address: `${formData.address.trim()}, ${formData.city.trim()}, ${formData.zipCode.trim()}`,
-        paymentMethod: formData.paymentMethod,
+        customer_name: formData.name.trim(),
+        customer_email: formData.email.trim() || null,
+        customer_phone: formData.phone.trim(),
+        address: `${formData.address.trim()}, ${formData.city.trim()}${formData.zipCode.trim() ? ', ' + formData.zipCode.trim() : ''}`,
+        payment_method: formData.paymentMethod,
         total: finalTotal
       };
 
@@ -195,7 +197,7 @@ const Checkout = ({ cartItems, clearCart }) => {
                 Thank you {formData.name}! Your order has been placed successfully.
               </p>
               <div className="text-sm text-gray-500 space-y-1">
-                <p>📧 Confirmation sent to: {formData.email}</p>
+                {formData.email && <p>📧 Confirmation sent to: {formData.email}</p>}
                 <p>📱 We'll contact you at: {formData.phone}</p>
                 <p>💰 Payment: {formData.paymentMethod}</p>
                 <p>📦 We will contact you soon to confirm your order</p>
@@ -349,7 +351,7 @@ const Checkout = ({ cartItems, clearCart }) => {
                   </div>
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
+                      Email Address (Optional)
                     </label>
                     <input
                       type="email"
@@ -358,8 +360,8 @@ const Checkout = ({ cartItems, clearCart }) => {
                       value={formData.email}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
-                      required
-                      aria-label="Enter your email address"
+                      placeholder="Enter your email address"
+                      aria-label="Enter your email address (optional)"
                     />
                   </div>
                 </div>
@@ -404,7 +406,7 @@ const Checkout = ({ cartItems, clearCart }) => {
                       </div>
                       <div>
                         <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-2">
-                          ZIP Code
+                          ZIP Code (Optional)
                         </label>
                         <input
                           type="text"
@@ -413,8 +415,7 @@ const Checkout = ({ cartItems, clearCart }) => {
                           value={formData.zipCode}
                           onChange={handleInputChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors duration-200"
-                          required
-                          aria-label="Enter your ZIP code"
+                          aria-label="Enter your ZIP code (optional)"
                         />
                       </div>
                     </div>
