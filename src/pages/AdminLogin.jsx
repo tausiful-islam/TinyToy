@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Mail, Eye, EyeOff, Shield } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
@@ -7,6 +7,7 @@ import { authService } from '../services/database.js';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -16,6 +17,11 @@ const AdminLogin = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Check if redirected due to access denied
+    if (location.state?.accessDenied) {
+      setError('Access denied. Please login with admin credentials.');
+    }
+
     // Check if user is already logged in
     const checkSession = async () => {
       const { data: session } = await authService.getSession();
@@ -25,7 +31,7 @@ const AdminLogin = () => {
     };
     
     checkSession();
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

@@ -1,9 +1,16 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const ProtectedRoute = ({ children, requireAdmin = true }) => {
-  const { user, loading } = useAuth();
+const ProtectedRoute = ({ children, requireAdmin = null }) => {
+  const { user, loading, isAdmin } = useAuth();
+  const location = useLocation();
+  
+  // Determine if this is an admin route
+  const isAdminRoute = location.pathname.startsWith('/admin/') && location.pathname !== '/admin/login';
+  
+  // Auto-detect admin requirement if not explicitly set
+  const needsAdmin = requireAdmin !== null ? requireAdmin : isAdminRoute;
 
   if (loading) {
     return (
@@ -16,15 +23,21 @@ const ProtectedRoute = ({ children, requireAdmin = true }) => {
     );
   }
 
+  // Check if user is authenticated
   if (!user) {
-    return <Navigate to={requireAdmin ? "/admin/login" : "/login"} replace />;
+    const redirectPath = needsAdmin ? "/admin/login" : "/login";
+    return <Navigate to={redirectPath} state={{ from: location }} replace />;
   }
 
-  // If admin is required, check user role
-  if (requireAdmin && !user.app_metadata?.role?.includes('admin')) {
-    return <Navigate to="/admin/login" replace />;
+  // For admin routes, check admin permissions
+  if (needsAdmin) {
+    if (!isAdmin()) {
+      // User is authenticated but not admin - redirect to admin login with access denied
+      return <Navigate to="/admin/login" state={{ accessDenied: true, from: location }} replace />;
+    }
   }
 
+  // User has proper permissions, render the protected content
   return children;
 };
 

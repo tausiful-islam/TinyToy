@@ -1,5 +1,6 @@
 import { supabase, TABLES, ORDER_STATUS } from '../lib/supabase.js'
 import { products as fallbackProducts } from '../data/products.js'
+import { authService } from './authService.js'
 
 // Products Service
 export const productService = {
@@ -717,29 +718,6 @@ export const authService = {
   // Listen to auth changes
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
-  },
-
-  // Check if user has specific role
-  hasRole(user, role) {
-    return user?.user_metadata?.role === role
-  },
-
-  // Check if user is admin
-  isAdmin(user) {
-    return this.hasRole(user, 'admin')
-  },
-
-  // Check if user is customer
-  isCustomer(user) {
-    return this.hasRole(user, 'customer') || (!user?.user_metadata?.role && user)
-  },
-
-  // Get user display name
-  getUserDisplayName(user) {
-    if (!user) return null
-    
-    const metadata = user.user_metadata || {}
-    return metadata.full_name || metadata.firstName || user.email || 'User'
   }
 }
 

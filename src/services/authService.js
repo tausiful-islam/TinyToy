@@ -204,6 +204,16 @@ export const authService = {
         throw new Error('Email and password are required')
       }
 
+      // Check against environment admin emails
+      const adminEmails = [
+        import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com',
+        'admin@yourdomain.com'
+      ]
+      
+      if (!adminEmails.includes(email.toLowerCase().trim())) {
+        throw new Error('Invalid admin credentials')
+      }
+
       // Check if using demo credentials
       const demoEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com'
       const demoPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123'
@@ -246,18 +256,26 @@ export const authService = {
         throw new Error(error.message)
       }
 
-      // Verify admin role (optional - can be enhanced with database check)
-      const userType = data.user?.user_metadata?.user_type
-      if (userType !== 'admin') {
-        // For now, allow any authenticated user to access admin
-        // Later you can add proper role checking
+      // Update user metadata to set admin role
+      const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+        data: {
+          ...data.user.user_metadata,
+          user_type: 'admin'
+        }
+      })
+
+      if (updateError) {
+        console.warn('Failed to update admin role:', updateError)
       }
 
+      // Use updated user data if available
+      const adminUser = updateData?.user || data.user
+
       return { 
-        data, 
+        data: { ...data, user: adminUser }, 
         error: null,
-        user: data.user,
-        session: data.session,
+        user: adminUser,
+        session: { ...data.session, user: adminUser },
         isDemo: false,
         message: 'Admin login successful!'
       }
@@ -551,6 +569,65 @@ export const authService = {
       console.error('Get user role error:', error)
       return 'customer'
     }
+  },
+
+  /**
+   * Check if user has admin role
+   * @param {object} user - User object
+   * @returns {boolean} - True if user is admin
+   */
+  isAdmin(user) {
+    if (!user) return false
+    
+    // Check user_type in metadata
+    if (user?.user_metadata?.user_type === 'admin') {
+      return true
+    }
+    
+    // Check against admin emails from environment variables
+    const adminEmails = [
+      import.meta.env.VITE_ADMIN_EMAIL || 'admin@itsmychoicee.com',
+      'admin@yourdomain.com'
+    ]
+    
+    return adminEmails.includes(user?.email?.toLowerCase())
+  },
+
+  /**
+   * Check if user has specific role
+   * @param {object} user - User object
+   * @param {string} role - Role to check for
+   * @returns {boolean} - True if user has the role
+   */
+  hasRole(user, role) {
+    if (!user || !role) return false
+    return user?.user_metadata?.user_type === role
+  },
+
+  /**
+   * Check if user has customer role
+   * @param {object} user - User object
+   * @returns {boolean} - True if user is customer
+   */
+  isCustomer(user) {
+    if (!user) return false
+    return this.hasRole(user, 'customer') || (!this.isAdmin(user) && !!user.email)
+  },
+
+  /**
+   * Get user display name
+   * @param {object} user - User object
+   * @returns {string} - User display name
+   */
+  getUserDisplayName(user) {
+    if (!user) return 'User'
+    
+    return (
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.first_name ||
+      user?.email ||
+      'User'
+    )
   }
 }
 
