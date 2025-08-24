@@ -16,6 +16,7 @@ export const useAuth = () => {
 // Auth Provider Component
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -28,18 +29,31 @@ export const AuthProvider = ({ children }) => {
   const initializeAuth = async () => {
     try {
       setLoading(true);
-      const { data: currentUser } = await authService.getUser();
       
-      if (currentUser) {
-        setUser(currentUser);
+      // Check for existing session first
+      const { data: sessionData } = await authService.getSession();
+      
+      if (sessionData) {
+        setSession(sessionData);
+        setUser(sessionData.user);
         setIsAuthenticated(true);
       } else {
-        setUser(null);
-        setIsAuthenticated(false);
+        // Fallback to getUser if no session
+        const { data: currentUser } = await authService.getUser();
+        
+        if (currentUser) {
+          setUser(currentUser);
+          setIsAuthenticated(true);
+        } else {
+          setUser(null);
+          setSession(null);
+          setIsAuthenticated(false);
+        }
       }
     } catch (error) {
       console.error('Error initializing auth:', error);
       setUser(null);
+      setSession(null);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
@@ -50,9 +64,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
       if (session?.user) {
+        setSession(session);
         setUser(session.user);
         setIsAuthenticated(true);
       } else {
+        setSession(null);
         setUser(null);
         setIsAuthenticated(false);
       }
@@ -128,12 +144,15 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       const result = await authService.adminLogin(email, password);
       
-      if (result.data && !result.error) {
-        setUser(result.data.user);
+      if (result.user && result.session && !result.error) {
+        // Successful admin login
+        setUser(result.user);
+        setSession(result.session);
         setIsAuthenticated(true);
-        return { success: true, user: result.data.user };
+        return { success: true, user: result.user };
       }
       
+      // Failed login
       return { success: false, error: result.error || 'Invalid admin credentials' };
     } catch (error) {
       console.error('Admin sign in error:', error);
@@ -154,6 +173,7 @@ export const AuthProvider = ({ children }) => {
       
       if (!result.error) {
         setUser(null);
+        setSession(null);
         setIsAuthenticated(false);
         return { success: true };
       }
@@ -264,6 +284,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     // State
     user,
+    session,
     loading,
     isAuthenticated,
     

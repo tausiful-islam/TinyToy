@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Package, Search, Filter, Edit, Eye, Calendar, User, CreditCard, Truck, Check, Clock, X, Users, TrendingUp, ShoppingBag, DollarSign } from 'lucide-react';
+import { Package, Search, Filter, Edit, Eye, Calendar, User, CreditCard, Truck, Check, Clock, X, Users, TrendingUp, ShoppingBag, DollarSign, CheckCircle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { orderService, authService, customerService } from '../services/database.js';
 import { ORDER_STATUS } from '../lib/supabase.js';

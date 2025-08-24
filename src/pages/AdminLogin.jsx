@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, Mail, Eye, EyeOff, Shield } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
-import { authService } from '../services/database.js';
+import { useAuth } from '../contexts/AuthContext';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { adminSignIn, isAuthenticated, loading: authLoading } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -22,16 +23,11 @@ const AdminLogin = () => {
       setError('Access denied. Please login with admin credentials.');
     }
 
-    // Check if user is already logged in
-    const checkSession = async () => {
-      const { data: session } = await authService.getSession();
-      if (session) {
-        navigate('/admin/orders');
-      }
-    };
-    
-    checkSession();
-  }, [navigate, location.state]);
+    // Check if user is already logged in and authenticated
+    if (isAuthenticated && !authLoading) {
+      navigate('/admin/orders');
+    }
+  }, [navigate, location.state, isAuthenticated, authLoading]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -49,15 +45,14 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const { data, error: loginError } = await authService.adminLogin(
-        formData.email,
-        formData.password
-      );
+      const result = await adminSignIn(formData.email, formData.password);
 
-      if (loginError) throw new Error(loginError);
-
-      // Success - redirect to admin orders
-      navigate('/admin/orders');
+      if (result.success) {
+        // Success - redirect to admin orders
+        navigate('/admin/orders');
+      } else {
+        throw new Error(result.error);
+      }
     } catch (err) {
       console.error('Login failed:', err);
       setError(err.message || 'Invalid email or password');
