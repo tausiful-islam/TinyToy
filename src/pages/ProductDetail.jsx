@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Star, ShoppingCart, Heart, User, Send } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingCart, Heart, User, Send, Minus, Plus, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
 import { productService } from '../services/database.js';
@@ -16,6 +16,8 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
+  const [quantity, setQuantity] = useState(1);
+  const [addToCartLoading, setAddToCartLoading] = useState(false);
   
   // Review management state
   const [reviews, setReviews] = useState([]);
@@ -103,10 +105,45 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
     fetchRelatedProducts();
   }, [product]);
 
-  const handleAddToCart = () => {
-    addToCart(product);
-    setIsAddingToCart(true);
-    setTimeout(() => setIsAddingToCart(false), 300);
+  const handleAddToCart = async () => {
+    if (quantity <= 0 || addToCartLoading) return; // Prevent adding if already processing
+    
+    try {
+      setAddToCartLoading(true);
+      setIsAddingToCart(true);
+      
+      // Add to cart with selected quantity using the new addToCart signature
+      // This adds the specified quantity without needing a loop
+      addToCart(product, null, null, quantity, false);
+      
+      // Add a small delay to prevent rapid clicks and show loading feedback
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    } finally {
+      setIsAddingToCart(false);
+      setAddToCartLoading(false);
+    }
+  };
+
+  // Quantity selector functions
+  const handleQuantityChange = (newQuantity) => {
+    if (newQuantity >= 1 && newQuantity <= 99) {
+      setQuantity(newQuantity);
+    }
+  };
+
+  const incrementQuantity = () => {
+    if (quantity < 99) {
+      setQuantity(quantity + 1);
+    }
+  };
+
+  const decrementQuantity = () => {
+    if (quantity > 1) {
+      setQuantity(quantity - 1);
+    }
   };
 
   const handleToggleWishlist = () => {
@@ -404,6 +441,50 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
                   )}
                 </div>
 
+                {/* Quantity Selector */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Quantity
+                  </label>
+                  <div className="flex items-center space-x-3">
+                    <motion.button
+                      onClick={decrementQuantity}
+                      className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      disabled={quantity <= 1}
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </motion.button>
+                    
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={quantity}
+                      onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                      className="w-16 h-10 text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      aria-label="Product quantity"
+                    />
+                    
+                    <motion.button
+                      onClick={incrementQuantity}
+                      className="flex items-center justify-center w-10 h-10 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      disabled={quantity >= 99}
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </motion.button>
+                    
+                    <span className="text-sm text-gray-500 ml-2">
+                      {quantity > 1 && `Total: $${(product.price * quantity).toFixed(2)}`}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="border-t pt-6">
                   <h3 className="font-semibold text-gray-900 mb-3">Product Features:</h3>
                   <ul className="space-y-2 text-gray-600">
@@ -430,9 +511,16 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
               <div className="mt-8 space-y-4">
                 <motion.button
                   onClick={handleAddToCart}
-                  className="w-full bg-primary-500 hover:bg-primary-600 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  disabled={quantity <= 0 || addToCartLoading}
+                  className={`w-full px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center justify-center space-x-3 shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    addToCartLoading 
+                      ? 'bg-primary-400 cursor-not-allowed' 
+                      : quantity <= 0
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-primary-500 hover:bg-primary-600'
+                  } text-white`}
+                  whileHover={{ scale: (quantity > 0 && !addToCartLoading) ? 1.02 : 1 }}
+                  whileTap={{ scale: (quantity > 0 && !addToCartLoading) ? 0.98 : 1 }}
                   animate={isAddingToCart ? {
                     scale: [1, 1.1, 1],
                     transition: { 
@@ -440,10 +528,23 @@ const ProductDetail = ({ addToCart, addToWishlist, removeFromWishlist, isInWishl
                       ease: "easeInOut"
                     }
                   } : {}}
-                  aria-label={`Add ${product.name} to cart for $${product.price}`}
+                  aria-label={addToCartLoading ? `Adding ${quantity} ${product.name}${quantity > 1 ? 's' : ''} to cart...` : `Add ${quantity} ${product.name}${quantity > 1 ? 's' : ''} to cart for $${(product.price * quantity).toFixed(2)}`}
                 >
-                  <ShoppingCart className="h-6 w-6" />
-                  <span>Add to Cart</span>
+                  {addToCartLoading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <ShoppingCart className="h-6 w-6" />
+                  )}
+                  <span>
+                    {addToCartLoading ? (
+                      `Adding${quantity > 1 ? ` ${quantity} items` : ''}...`
+                    ) : (
+                      <>
+                        Add {quantity > 1 && `${quantity} `}to Cart
+                        {quantity > 1 && ` - $${(product.price * quantity).toFixed(2)}`}
+                      </>
+                    )}
+                  </span>
                 </motion.button>
                 
                 <motion.button 

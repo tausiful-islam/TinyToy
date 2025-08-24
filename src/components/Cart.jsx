@@ -71,7 +71,7 @@ const Cart = ({ isOpen, toggleCart, cartItems, updateQuantity, removeFromCart })
                   <div className="space-y-4">
                     {cartItems.map((item, index) => (
                       <motion.div 
-                        key={item.id} 
+                        key={item.cartKey} 
                         className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg"
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -90,7 +90,7 @@ const Cart = ({ isOpen, toggleCart, cartItems, updateQuantity, removeFromCart })
                         
                         <div className="flex items-center space-x-2">
                           <motion.button
-                            onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                            onClick={() => updateQuantity(item.cartKey, Math.max(0, item.quantity - 1))}
                             className="p-1 hover:bg-gray-200 rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
@@ -102,7 +102,7 @@ const Cart = ({ isOpen, toggleCart, cartItems, updateQuantity, removeFromCart })
                           <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
                           
                           <motion.button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.cartKey, item.quantity + 1)}
                             className="p-1 hover:bg-gray-200 rounded transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
@@ -112,7 +112,7 @@ const Cart = ({ isOpen, toggleCart, cartItems, updateQuantity, removeFromCart })
                           </motion.button>
                           
                           <motion.button
-                            onClick={() => removeFromCart(item.id)}
+                            onClick={() => removeFromCart(item.cartKey)}
                             className="p-1 hover:bg-red-100 text-red-600 rounded transition-colors duration-200 ml-2 focus:outline-none focus:ring-2 focus:ring-red-500"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}

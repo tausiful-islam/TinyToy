@@ -59,8 +59,8 @@ function App() {
     localStorage.setItem('itsmychoicee_wishlist', JSON.stringify(wishlistItems));
   }, [wishlistItems]);
 
-  // Add item to cart with variant support
-  const addToCart = (product, variant = null, attributes = null, quantity = 1) => {
+  // Add item to cart with variant support and configurable quantity behavior
+  const addToCart = (product, variant = null, attributes = null, quantity = 1, replace = false) => {
     setCartItems(prevItems => {
       const cartKey = variant ? `${product.id}-${variant.id}` : `${product.id}`;
       const existingItem = prevItems.find(item => 
@@ -74,7 +74,10 @@ function App() {
           (variant 
             ? (item.id === product.id && item.variant?.id === variant.id)
             : item.id === product.id && !item.variant)
-            ? { ...item, quantity: item.quantity + quantity }
+            ? { 
+                ...item, 
+                quantity: replace ? quantity : item.quantity + quantity 
+              }
             : item
         );
       } else {
