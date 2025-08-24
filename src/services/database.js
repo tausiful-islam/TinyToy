@@ -633,7 +633,7 @@ export const authService = {
             ...userData,
             role: 'customer'
           },
-          emailRedirectTo: `${import.meta.env.VITE_APP_URL || 'https://tiny-toy-six.vercel.app'}/auth/verify-email`
+          emailRedirectTo: `${import.meta.env.VITE_APP_URL || 'https://itsmychoice.vercel.app'}/auth/verify-email`
         }
       })
 
@@ -679,7 +679,7 @@ export const authService = {
       }
 
       const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${import.meta.env.VITE_APP_URL || 'https://tiny-toy-six.vercel.app'}/reset-password`
+        redirectTo: `${import.meta.env.VITE_APP_URL || 'https://itsmychoice.vercel.app'}/reset-password`
       })
 
       if (error) throw error
